@@ -1,4 +1,5 @@
 #include "Arduino.h"
+#include "Config.h"
 
 //Motor A
 #define motorPin1 5  // Pin 14 of L293
