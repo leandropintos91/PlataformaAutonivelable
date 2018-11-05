@@ -1,4 +1,10 @@
 #include "Arduino.h"
+
+//bluetooth
+#define rx 13
+#define tx 30
+
+
 //motores
 
 #define motor1Pin1 4
@@ -12,6 +18,8 @@
 #define pulsador1 10
 #define pulsador2 11
 #define pulsador3 12
+
+
 
 
 
