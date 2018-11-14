@@ -5,11 +5,13 @@
 
 class ultrasonido_hcsr04 {
     public:
-      ultrasonido_hcsr04();
+      ultrasonido_hcsr04(int,int);
     	void trigger();
     	short getDistancia();
 
     private:
     	unsigned long ultimoMicrosegundo;
     	short distancia;
+      short triggerPin;
+      short echoPin;
 };

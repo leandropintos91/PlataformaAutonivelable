@@ -10,13 +10,18 @@
 #include "Wire.h"
 #include "motorControl.h"
 #include "botonControl.h"
+#include "ultrasonido_hcsr04.h"
 
 uint8_t mpuAddress = 0x68;  //Puede ser 0x68 o 0x69
 MPU6050 mpu(mpuAddress);
+ultrasonido_hcsr04 sensorDistancia(triggerDistancia, echoDistancia);
+
+int distancia = 0;
  
-int ax, ay, az;
+float ax, ay, az;
 int gx, gy, gz;
 int MODO = 1; // 1-Libre ; 2-Imitando Celular ; 3-Altura determinada por celular
+int lecturaX, lecturaY, lecturaZ;
 
 float acx, acy, acz;
 int sensity=16384;
@@ -28,9 +33,18 @@ bool histX = true;
 bool histY = true;
 bool histZ = true;
 
+short sentido = 1;
+
 bool motor1Max = false;
 bool motor2Max = false;
 bool motor3Max = false;
+
+bool invertir = false;
+bool horario = true;
+int turno = 1;
+
+unsigned long currentMillis = 0;
+unsigned long ultimoTiempo = 0;
 
 
 void printTab()
@@ -59,25 +73,69 @@ void setup()
    Wire.begin();
    mpu.initialize();
    Serial.println(mpu.testConnection() ? F("IMU iniciado correctamente") : F("Error al iniciar IMU"));
+   pinMode(pulsador1, INPUT);
+   pinMode(pulsador2, INPUT);
+   pinMode(pulsador3, INPUT);
+   pinMode(motor1Pin1, OUTPUT);
+   pinMode(motor1Pin2, OUTPUT);
+   pinMode(motor2Pin1, OUTPUT);
+   pinMode(motor2Pin2, OUTPUT);
+   pinMode(motor3Pin1, OUTPUT);
+   pinMode(motor3Pin2, OUTPUT);
+   pinMode(finMotor1, INPUT);
+   pinMode(finMotor2, INPUT);
+   pinMode(finMotor3, INPUT);
+   pararMotores();
 }
  
 void loop()
 {
 
-    unsigned long currentMillis = millis();
+    currentMillis = millis();
     
-    if (estadoPulsadores() == HIGH){
+    if (true){
+      leerContactos();
+      
       if (MODO == 1){
         
-         mpu.getAcceleration(&ax, &ay, &az);
+         mpu.getAcceleration(&lecturaX, &lecturaY, &lecturaZ);
+         distancia = sensorDistancia.getDistancia();
+
+         /*Serial.print("distancia: ");
+         printTab();
+         Serial.println(distancia);*/
+
+         lecturaX = ax/1024;
+         lecturaY = ay/1024;
+         lecturaZ = az/1024;
          
          if(ax > 1) histX = false;
          else
          if(ay > 1) histX = false;
          else
          if(az > 1) histX = false;
+
+         /*if(distancia > 14)
+         {
+          bajar();
+         }
+         if(motor1Max && motor2Max && motor3Max)
+         {
+          subir();
+         }*/
+
+         //cambioDeTurno();
+         if(sentido == 1 )
+         {
+          motor1antihorario();
+         }
+         else
+         {
+          motor1horario();
+         }
+         cambioSentido();
          
-         if(ax > 0.2 and histX == false)
+         /*if(ax > 0.2 and histX == false)
             if(motor1Max == false) 
                 motor1horario();
             else{
@@ -121,7 +179,8 @@ void loop()
             pararMotores();
             
             histZ = true;
-         }                
+         }*/
+         
       }
       if (MODO == 2){
       //recibir valores a los cuales apuntar y mover motores. Sería similar al modo 1 pero cambian los valores de los IF.  
@@ -143,4 +202,64 @@ void loop()
       // Leer las aceleraciones y velocidades angulares
     }
     */
+}
+
+void leerContactos() 
+{
+  motor1Max = digitalRead(finMotor1);
+  motor2Max = digitalRead(finMotor2);
+  motor3Max = digitalRead(finMotor3);
+}
+
+void bajar()
+{
+  switch(turno)
+  {
+    case 1: motor1horario();
+    break;
+
+    case 2: motor2horario();
+    break;
+
+    case 3: motor3horario();
+    break;
+  }
+}
+
+void subir()
+{
+  switch(turno)
+  {
+    case 1: motor1antihorario();
+    break;
+
+    case 2: motor2antihorario();
+    break;
+
+    case 3: motor3antihorario();
+    break;
+  }
+}
+
+void cambioDeTurno()
+{
+  if((currentMillis - ultimoTiempo) > 2500)
+  {
+    Serial.println("cambio de turno");
+    ultimoTiempo = currentMillis;
+    turno++;
+    turno = turno > 3 ? 1 : turno;
+    pararMotores();
+    Serial.println(turno);
+  }
+}
+
+void cambioSentido()
+{
+  if((currentMillis - ultimoTiempo) > 2500)
+  {
+        Serial.println("cambio de sentido");
+    ultimoTiempo = currentMillis;
+    sentido *= -1;
+  }
 }

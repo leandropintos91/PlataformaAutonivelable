@@ -7,17 +7,29 @@
 
 //motores
 
-#define motor1Pin1 4
-#define motor1Pin2 5
-#define motor2Pin1 6
-#define motor2Pin2 7
-#define motor3Pin1 8
-#define motor3Pin2 9
-
 //pulsador
-#define pulsador1 10
-#define pulsador2 11
-#define pulsador3 12
+#define pulsador1 2
+#define pulsador2 3
+#define pulsador3 4
+
+#define finMotor1 5
+#define finMotor2 6
+#define finMotor3 7
+
+#define motor1Pin1 8
+#define motor1Pin2 9
+#define motor2Pin1 10
+#define motor2Pin2 11
+#define motor3Pin1 12
+#define motor3Pin2 13
+
+#define triggerDistancia 30
+#define echoDistancia 31
+
+
+
+
+
 
 
 
