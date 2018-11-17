@@ -1,3 +1,4 @@
+CODIGOS DESDE EL LADO DEL ARDUINO
 Recibir:
 
 -MODE "nro" 	-> Modo en que trabajará la plataforma
@@ -14,6 +15,7 @@ Enviar:
 -RMOD NO	-> Modo de trabajo no aceptado
 -RSTA "modo" 	-> Envia todo su estado general 
       "estadoled"
+      "altura"
       "nivelX"
       "nivelY"
       "nivelZ"
