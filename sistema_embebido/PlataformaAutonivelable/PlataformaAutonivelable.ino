@@ -18,10 +18,10 @@ ultrasonido_hcsr04 sensorDistancia(triggerDistancia, echoDistancia);
 
 int distancia = 0;
  
-float ax, ay, az;
+int ax, ay, az;
 int gx, gy, gz;
 int MODO = 1; // 1-Libre ; 2-Imitando Celular ; 3-Altura determinada por celular
-int lecturaX, lecturaY, lecturaZ;
+float lecturaX, lecturaY, lecturaZ;
 
 float acx, acy, acz;
 int sensity=16384;
@@ -46,6 +46,8 @@ int turno = 1;
 unsigned long currentMillis = 0;
 unsigned long ultimoTiempo = 0;
 
+bool debeContraerMotores = true;
+
 
 void printTab()
 {
@@ -69,7 +71,7 @@ void printRAW()
  
 void setup()
 {
-   Serial.begin(9600);
+   Serial.begin(1200);
    Wire.begin();
    mpu.initialize();
    Serial.println(mpu.testConnection() ? F("IMU iniciado correctamente") : F("Error al iniciar IMU"));
@@ -88,69 +90,70 @@ void setup()
    pararMotores();
 }
  
-void loop()
+void loop_sarasa()
 {
 
-    currentMillis = millis();
+    realizarMediciones();
     
-    if (true){
-      leerContactos();
-      
+    if (estadoPulsadores() == HIGH){
       if (MODO == 1){
-        
-         mpu.getAcceleration(&lecturaX, &lecturaY, &lecturaZ);
-         distancia = sensorDistancia.getDistancia();
-
-         /*Serial.print("distancia: ");
-         printTab();
-         Serial.println(distancia);*/
-
-         lecturaX = ax/1024;
-         lecturaY = ay/1024;
-         lecturaZ = az/1024;
-         
-         if(ax > 1) histX = false;
-         else
-         if(ay > 1) histX = false;
-         else
-         if(az > 1) histX = false;
-
-         /*if(distancia > 14)
-         {
-          bajar();
-         }
-         if(motor1Max && motor2Max && motor3Max)
-         {
-          subir();
-         }*/
-
-         //cambioDeTurno();
-         if(sentido == 1 )
-         {
-          motor1antihorario();
-         }
-         else
-         {
-          motor1horario();
-         }
-         cambioSentido();
-         
-         /*if(ax > 0.2 and histX == false)
-            if(motor1Max == false) 
-                motor1horario();
-            else{
-                motor2antihorario(); //   no se pueden hacer al mismo tiempo por ahora por lo cual hay que
-                motor3antihorario(); //   cambiar acá o poner código para el motor que mueva de a 2 motores.
-            }
-                
-            
-         else 
-         {
-            pararMotores();
-            
-            histX = true;  
-         }
-         if(ay > 0.2  and histY == false)
+        if(debeContraerMotores)
+        {
+          contraerMotores();
+        }
+        else
+        {
+           Serial.print(lecturaX);
+           printTab();
+           Serial.print(histX);
+           printTab();
+           Serial.println(motor1Max);
+           
+           if(abs(lecturaX) > 0.2 and histX == false)
+           {
+              if(lecturaX > 0)
+              {
+                if(motor1Max == LOW)
+                {
+                  Serial.println("bajando motor 1");
+                  motor1antihorario();
+                }
+                else
+                {
+                  Serial.println("subiendo 2 y 3");
+                  motor2y3horario();
+                }
+              }
+              if(lecturaX < 0)
+              {
+                if(motor2Max == LOW || motor3Max == LOW)
+                {
+                  Serial.println("bajando motor 2 y 3");
+                  if(motor2Max == LOW && motor3Max == LOW)
+                    motor2y3antihorario();
+                  else
+                  {
+                    if(motor2Max == LOW)
+                      motor2antihorario();
+                    else
+                      motor3antihorario();
+                  }
+                }
+                else
+                {
+                  Serial.println("subiendo motor 1");
+                  motor1horario();
+                }
+              }
+           }
+           else 
+           {
+              pararMotores();
+              
+              histX = true;  
+           } 
+        }
+         /*if(abs(lecturaY) > 0.2  and histY == false)
          
            if(motor2Max == false) 
                 motor2horario();
@@ -165,7 +168,7 @@ void loop()
             
             histY = true;
          }
-         if(az > 0.2  and histZ == false)
+         if(abs(lecturaZ) > 0.2  and histZ == false)
          
             if(motor3Max == false) 
                 motor3horario();
@@ -195,6 +198,8 @@ void loop()
     { 
        pararMotores();    
     }
+    if(MODO != 1)
+      debeContraerMotores = true;
     
     /*if (currentMillis - previousMillis >= interval) {
       // save the last time 
@@ -204,6 +209,31 @@ void loop()
     */
 }
 
+void realizarMediciones()
+{
+  currentMillis = millis();
+  distancia = sensorDistancia.getDistancia();
+  leerContactos();
+  calcularValoresInclinacion();
+}
+
+void calcularValoresInclinacion()
+{
+  mpu.getAcceleration(&ax, &ay, &az);
+  lecturaX = ((float)ax)/1024;
+  lecturaY = ((float)ay)/1024;
+  lecturaZ = ((float)az)/1024;
+  
+  if(abs(lecturaX) > 0.3)
+    histX = false;
+  else
+    if(abs(lecturaY) > 0.3)
+      histY = false;
+    else
+      if(abs(lecturaZ) > 0.3)
+        histZ = false;
+}
+
 void leerContactos() 
 {
   motor1Max = digitalRead(finMotor1);
@@ -211,7 +241,7 @@ void leerContactos()
   motor3Max = digitalRead(finMotor3);
 }
 
-void bajar()
+void subir()
 {
   switch(turno)
   {
@@ -226,7 +256,7 @@ void bajar()
   }
 }
 
-void subir()
+void bajar()
 {
   switch(turno)
   {
@@ -262,4 +292,87 @@ void cambioSentido()
     ultimoTiempo = currentMillis;
     sentido *= -1;
   }
+}
+
+void loopPruebaSubeYBaja()
+{
+
+  leerContactos();
+ if(true)
+ {
+         distancia = sensorDistancia.getDistancia();
+         if(distancia > 13)
+         {
+          sentido = 0;
+         }
+         if(motor1Max && motor2Max && motor3Max)
+         {
+          sentido = 1;
+         }
+
+         Serial.print(motor1Max);
+         Serial.print(motor2Max);
+         Serial.print(motor3Max);
+         printTab();
+         Serial.print(distancia);
+                  printTab();
+         Serial.println(sentido);
+
+         if(sentido == 1){
+          moverMotoresHorario();
+         }else {
+          moverMotoresAntihorario();
+         }
+         cambioDeTurno();
+ }
+}
+
+void loop()
+{
+  contraerMotores();
+}
+
+void contraerMotores() 
+{
+  leerContactos();
+  if(motor1Max == LOW)
+  {
+    Serial.println("contrayendo 1");
+    motor1antihorario();
+  }
+  else
+  {
+    pararMotor1();
+    if(motor2Max == LOW)
+    {
+      Serial.println("contrayendo 2");
+      motor2antihorario();
+    }
+     else
+     {
+        pararMotor2();
+        if(motor3Max == LOW)
+        {
+          Serial.println("contrayendo 3");
+          motor3antihorario();
+        }
+        else
+        {
+          Serial.println("fin contracción");
+          debeContraerMotores = false;
+        }
+     }
+  }
+    
+}
+
+void extenderMotores() 
+{
+  turno = (millis() % 3000);
+  if(turno <= 999)
+    motor1horario();
+  if(turno >= 1000 && turno < 1999)
+    motor2horario();
+  if(turno >= 2000)
+    motor3horario();
 }
