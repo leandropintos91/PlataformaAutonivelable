@@ -1,0 +1,25 @@
+Recibir:
+
+-MODE "nro" 	-> Modo en que trabajará la plataforma
+-STAT 		-> Petición de enviar su estado
+-SETH "nro"	-> Setear altura general
+-LEVX "nro"	-> Recibe nivel X del celular para modo imitador
+-LEVY "nro"	-> Recibe nivel Y del celular para modo imitador
+-LEVZ "nro"	-> Recibe nivel Z del celular para modo imitador
+
+
+Enviar:
+
+-RMOD OK 	-> Modo de trabajo aceptado
+-RMOD NO	-> Modo de trabajo no aceptado
+-RSTA "modo" 	-> Envia todo su estado general 
+      "estadoled"
+      "nivelX"
+      "nivelY"
+      "nivelZ"
+-MAXH 		-> Informa que está a la altura máxima nivelada
+-MINH		-> Informa que está a la altura mínima nivelada
+
+
+
+
