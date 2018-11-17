@@ -90,7 +90,7 @@ void setup()
    pararMotores();
 }
  
-void loop_sarasa()
+void loop()
 {
 
     realizarMediciones();
@@ -107,82 +107,112 @@ void loop_sarasa()
            printTab();
            Serial.print(histX);
            printTab();
-           Serial.println(motor1Max);
+           Serial.print(motor1Max);
+           Serial.print("|");
+           Serial.print(lecturaY);
+           printTab();
+           Serial.print(histY);
+           printTab();
+           Serial.print(motor2Max);
+           printTab();
+           Serial.println(motor3Max);
            
-           if(abs(lecturaX) > 0.2 and histX == false)
-           {
-              if(lecturaX > 0)
+           if(abs(lecturaY) > 0.2 and histY == false)
+           {   Serial.print("Y NO OK");
+              if(lecturaY < 0)
               {
-                if(motor1Max == LOW)
+                if(motor3Max == LOW)
                 {
-                  Serial.println("bajando motor 1");
-                  motor1antihorario();
+                  Serial.println("bajando motor 3");
+                  motor3antihorario();
                 }
                 else
                 {
-                  Serial.println("subiendo 2 y 3");
-                  motor2y3horario();
+                  Serial.println("subiendo motor 2");
+                  motor2horario();
                 }
               }
-              if(lecturaX < 0)
+              if(lecturaY > 0)
               {
-                if(motor2Max == LOW || motor3Max == LOW)
-                {
-                  Serial.println("bajando motor 2 y 3");
-                  if(motor2Max == LOW && motor3Max == LOW)
-                    motor2y3antihorario();
+                  if(motor2Max == LOW)
+                  {
+                    Serial.println("bajando motor 2");
+                    motor2antihorario();
+                  }
                   else
                   {
-                    if(motor2Max == LOW)
-                      motor2antihorario();
-                    else
-                      motor3antihorario();
+                    Serial.println("subiendo motor 3");
+                    motor3horario();
                   }
-                }
-                else
+               }
+               /* else
                 {
                   Serial.println("subiendo motor 1");
                   motor1horario();
-                }
-              }
-           }
-           else 
-           {
-              pararMotores();
+                }*/
+             }
+              else 
+              { 
+                 Serial.print("Y OK");
+                 pararMotores();
+                  
+                 histY = true;  
               
-              histX = true;  
-           } 
+                 if(abs(lecturaX) > 0.2 and histX == false)
+                 {  Serial.print("1");
+                    if(lecturaX > 0)
+                    {Serial.print("2");
+                      if(motor1Max == LOW)
+                      {
+                        Serial.println("bajando motor 1");
+                        motor1antihorario();
+                      }
+                      else
+                      {
+                        Serial.print("No se puede nivelar X");
+                        //Serial.println("subiendo 2 y 3");
+                        //motor2y3horario();
+                      }
+                    }
+                    if(lecturaX < 0)
+                    {Serial.print("3");
+                      motor1horario();
+                    }
+                    else
+                    {
+                      Serial.print("No se puede nivelar X");
+                     }  
+                      /*if(motor2Max == LOW || motor3Max == LOW)
+                      {
+                        Serial.println("bajando motor 2 y 3");
+                        if(motor2Max == LOW && motor3Max == LOW)
+                          motor2y3antihorario();
+                        else
+                        {
+                          if(motor2Max == LOW)
+                            motor2antihorario();
+                          else
+                            motor3antihorario();
+                        }
+                      }
+                      else
+                      {
+                        Serial.println("subiendo motor 1");
+                        motor1horario();
+                      }*/
+                    }
+                 
+                 else 
+                 {
+                    pararMotores();
+                    Serial.print("4");
+                    histX = true;  
+                 }
+            
+           }
+        
         }
-         /*if(abs(lecturaY) > 0.2  and histY == false)
-         
-           if(motor2Max == false) 
-                motor2horario();
-            else{
-                motor1antihorario(); //   no se pueden hacer al mismo tiempo por ahora por lo cual hay que
-                motor3antihorario(); //   cambiar acá o poner código para el motor que mueva de a 2 motores.
-            }
-            
-         else 
-         {
-            pararMotores();
-            
-            histY = true;
-         }
-         if(abs(lecturaZ) > 0.2  and histZ == false)
-         
-            if(motor3Max == false) 
-                motor3horario();
-            else{
-                motor1antihorario(); //   no se pueden hacer al mismo tiempo por ahora por lo cual hay que
-                motor2antihorario(); //   cambiar acá o poner código para el motor que mueva de a 2 motores.
-            }
-            
-         else 
-         {
-            pararMotores();
-            
-            histZ = true;
-         }*/
+        
          
       }
       if (MODO == 2){
@@ -224,13 +254,13 @@ void calcularValoresInclinacion()
   lecturaY = ((float)ay)/1024;
   lecturaZ = ((float)az)/1024;
   
-  if(abs(lecturaX) > 0.3)
-    histX = false;
+  if(abs(lecturaY) > 0.5)
+    histY = false;
   else
-    if(abs(lecturaY) > 0.3)
-      histY = false;
+    if(abs(lecturaX) > 0.5)
+      histX = false;
     else
-      if(abs(lecturaZ) > 0.3)
+      if(abs(lecturaZ) > 0.5)
         histZ = false;
 }
 
@@ -327,7 +357,7 @@ void loopPruebaSubeYBaja()
  }
 }
 
-void loop()
+void loop_contraer()
 {
   contraerMotores();
 }
