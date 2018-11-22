@@ -12,66 +12,27 @@
 #include "botonControl.h"
 #include "ultrasonido_hcsr04.h"
 
+#define MARGEN_ERROR_NIVEL_EJES_CON_HISTERISIS 0.25;
+#define MARGEN_ERROR_NIVEL_EJES_SIN_HISTERISIS 0.15;
+
 uint8_t mpuAddress = 0x68;  //Puede ser 0x68 o 0x69
 MPU6050 mpu(mpuAddress);
 ultrasonido_hcsr04 sensorDistancia(triggerDistancia, echoDistancia);
-
-int distancia = 0;
- 
-int ax, ay, az;
-int gx, gy, gz;
-int MODO = 1; // 1-Libre ; 2-Imitando Celular ; 3-Altura determinada por celular
+float distancia = 0;
+int modo = 1;
 float lecturaX, lecturaY, lecturaZ;
-
-float acx, acy, acz;
-int sensity=16384;
-unsigned long previousMillis = 0;        
-const long interval = 1000;     
-
-bool nivelando = false;
-bool histX = true;
-bool histY = true;
-bool histZ = true;
-
-short sentido = 1;
-
+int sensity=1024;
 bool motor1Max = false;
 bool motor2Max = false;
 bool motor3Max = false;
-
-bool invertir = false;
-bool horario = true;
-int turno = 1;
-
 unsigned long currentMillis = 0;
-unsigned long ultimoTiempo = 0;
-
 bool debeContraerMotores = true;
-
-
-void printTab()
-{
-   Serial.print(F("\t"));
-}
- 
-void printRAW()
-{
-   Serial.print(F("a[x y z] g[x y z]:t \t"));
-   acx = (float)ax / sensity;
-   acy = (float)ay / sensity;
-   acz = (float)az / sensity;
-   
-   Serial.print(acx); printTab();
-   Serial.print(acy); printTab();
-   Serial.print(acz); printTab();
-   Serial.print(gx); printTab();
-   Serial.print(gy); printTab();
-   Serial.println(gz);
-}
+bool histerisisY;
+bool histerisisX;
  
 void setup()
 {
-   Serial.begin(1200);
+   Serial.begin(2400);
    Wire.begin();
    mpu.initialize();
    Serial.println(mpu.testConnection() ? F("IMU iniciado correctamente") : F("Error al iniciar IMU"));
@@ -96,147 +57,150 @@ void loop()
     realizarMediciones();
     
     if (estadoPulsadores() == HIGH){
-      if (MODO == 1){
-        if(debeContraerMotores)
-        {
-          contraerMotores();
-        }
+      if(debeContraerMotores)
+      {
+        contraerMotores();
+      }
+      else
+      {
+        if(!plataformaNivelada())
+          nivelar();
         else
-        {
-           Serial.print(lecturaX);
-           printTab();
-           Serial.print(histX);
-           printTab();
-           Serial.print(motor1Max);
-           Serial.print("|");
-           Serial.print(lecturaY);
-           printTab();
-           Serial.print(histY);
-           printTab();
-           Serial.print(motor2Max);
-           printTab();
-           Serial.println(motor3Max);
-           
-           if(abs(lecturaY) > 0.2 and histY == false)
-           {   Serial.print("Y NO OK");
-              if(lecturaY < 0)
-              {
-                if(motor3Max == LOW)
-                {
-                  Serial.println("bajando motor 3");
-                  motor3antihorario();
-                }
-                else
-                {
-                  Serial.println("subiendo motor 2");
-                  motor2horario();
-                }
-              }
-              if(lecturaY > 0)
-              {
-                  if(motor2Max == LOW)
-                  {
-                    Serial.println("bajando motor 2");
-                    motor2antihorario();
-                  }
-                  else
-                  {
-                    Serial.println("subiendo motor 3");
-                    motor3horario();
-                  }
-               }
-               /* else
-                {
-                  Serial.println("subiendo motor 1");
-                  motor1horario();
-                }*/
-             }
-              else 
-              { 
-                 Serial.print("Y OK");
-                 pararMotores();
-                  
-                 histY = true;  
-              
-                 if(abs(lecturaX) > 0.2 and histX == false)
-                 {  Serial.print("1");
-                    if(lecturaX > 0)
-                    {Serial.print("2");
-                      if(motor1Max == LOW)
-                      {
-                        Serial.println("bajando motor 1");
-                        motor1antihorario();
-                      }
-                      else
-                      {
-                        Serial.print("No se puede nivelar X");
-                        //Serial.println("subiendo 2 y 3");
-                        //motor2y3horario();
-                      }
-                    }
-                    if(lecturaX < 0)
-                    {Serial.print("3");
-                      motor1horario();
-                    }
-                    else
-                    {
-                      Serial.print("No se puede nivelar X");
-                     }  
-                      /*if(motor2Max == LOW || motor3Max == LOW)
-                      {
-                        Serial.println("bajando motor 2 y 3");
-                        if(motor2Max == LOW && motor3Max == LOW)
-                          motor2y3antihorario();
-                        else
-                        {
-                          if(motor2Max == LOW)
-                            motor2antihorario();
-                          else
-                            motor3antihorario();
-                        }
-                      }
-                      else
-                      {
-                        Serial.println("subiendo motor 1");
-                        motor1horario();
-                      }*/
-                    }
-                 
-                 else 
-                 {
-                    pararMotores();
-                    Serial.print("4");
-                    histX = true;  
-                 }
-            
-           }
-        
-        }
-        
-         
-      }
-      if (MODO == 2){
-      //recibir valores a los cuales apuntar y mover motores. Sería similar al modo 1 pero cambian los valores de los IF.  
-      }
-      
-      if (MODO == 3){
-      //recibir altura y mover todos los motores en igual cantidad. Sería conveniente tenerlo nivelado primero.
+          pararMotores();    
       }
       
     }
     else
-    { 
-       pararMotores();    
-    }
-    if(MODO != 1)
+    {   
+      pararMotores();
       debeContraerMotores = true;
-    
-    /*if (currentMillis - previousMillis >= interval) {
-      // save the last time 
-      previousMillis = currentMillis;
-      // Leer las aceleraciones y velocidades angulares
     }
-    */
+}
+
+void nivelar()
+{
+  if(!ejeYNivelado())
+  {
+    nivelarEjeY();
+  }
+  else if(!ejeXNivelado())
+  {
+    nivelarEjeX();
+  }
+}
+
+void nivelarEjeY()
+{
+  if(ejeYPositivo())
+    bajarEjeY();
+  else
+    subirEjeY();
+}
+
+void bajarEjeY()
+{
+  Serial.println("Bajando eje Y");
+  if(motor2Max)
+  {
+    motor3horario();
+  }
+  else
+    motor2antihorario();
+}
+
+void subirEjeY()
+{
+  Serial.println("Subiendo eje Y");
+  if(motor3Max)
+  {
+    motor2horario();
+  }
+  else
+    motor3antihorario();
+}
+
+bool ejeYPositivo()
+{
+  return lecturaY > 0;
+}
+
+void nivelarEjeX()
+{
+  if(ejeXPositivo())
+    bajarEjeX();
+  else
+    subirEjeX();
+}
+
+void bajarEjeX()
+{
+  Serial.println("Bajando eje X");
+  if(motor1Max == LOW)
+  {
+    motor1antihorario();
+  }
+  else
+  {
+    motor2y3horario();
+  }
+}
+
+void subirEjeX()
+{
+  Serial.println("Subiendo eje X");
+  //TODO debemos subir primero la pata 1 pero no tenemos forma de saber cuándo está en su máxima extensión.
+  if(!(motor2Max == LOW) && !(motor3Max == LOW))
+  {
+    Serial.println("Motor 2 y 3 antihorario");
+    motor2y3antihorario();
+  }
+  else
+  {
+    Serial.println("Motor 1 horario");
+    motor1horario();
+  }
+}
+
+bool ejeXPositivo()
+{
+  return lecturaX > 0;
+}
+
+bool ejeXNivelado()
+{
+  bool nivelado = false;
+  if(histerisisX)
+  {
+    nivelado = abs(lecturaX) < MARGEN_ERROR_NIVEL_EJES_CON_HISTERISIS;
+  }
+  else
+  {
+    nivelado = abs(lecturaX) < MARGEN_ERROR_NIVEL_EJES_SIN_HISTERISIS;
+  }
+
+  histerisisX = nivelado;
+  return nivelado;
+}
+
+bool ejeYNivelado()
+{
+  bool nivelado = false;
+  if(histerisisY)
+  {
+    nivelado = abs(lecturaY) <= MARGEN_ERROR_NIVEL_EJES_CON_HISTERISIS;
+  }
+  else
+  {
+    nivelado = abs(lecturaY) < MARGEN_ERROR_NIVEL_EJES_SIN_HISTERISIS;
+  }
+
+  histerisisY = nivelado;
+  return nivelado;
+}
+
+bool plataformaNivelada()
+{
+  return ejeYNivelado() && ejeXNivelado();
 }
 
 void realizarMediciones()
@@ -245,23 +209,35 @@ void realizarMediciones()
   distancia = sensorDistancia.getDistancia();
   leerContactos();
   calcularValoresInclinacion();
+
+  imprimirMediciones();
+}
+
+void imprimirMediciones()
+{
+  Serial.print(lecturaX);
+  printTab();
+  Serial.print(lecturaY);
+  printTab();
+  Serial.print(distancia);
+  printTab();
+  Serial.print(ejeXNivelado());
+  printTab();
+  Serial.print(ejeYNivelado());
+  printTab();
+  Serial.print(histerisisX);
+  printTab();
+  Serial.print(histerisisY);
+  Serial.println(" ");
 }
 
 void calcularValoresInclinacion()
 {
+  int ax, ay, az;
   mpu.getAcceleration(&ax, &ay, &az);
-  lecturaX = ((float)ax)/1024;
-  lecturaY = ((float)ay)/1024;
-  lecturaZ = ((float)az)/1024;
-  
-  if(abs(lecturaY) > 0.5)
-    histY = false;
-  else
-    if(abs(lecturaX) > 0.5)
-      histX = false;
-    else
-      if(abs(lecturaZ) > 0.5)
-        histZ = false;
+  lecturaX = ((float)ax)/sensity;
+  lecturaY = ((float)ay)/sensity;
+  lecturaZ = ((float)az)/sensity;
 }
 
 void leerContactos() 
@@ -271,138 +247,36 @@ void leerContactos()
   motor3Max = digitalRead(finMotor3);
 }
 
-void subir()
+void printTab()
 {
-  switch(turno)
-  {
-    case 1: motor1horario();
-    break;
-
-    case 2: motor2horario();
-    break;
-
-    case 3: motor3horario();
-    break;
-  }
+   Serial.print(F("\t"));
 }
-
-void bajar()
+ 
+void printRAW()
 {
-  switch(turno)
-  {
-    case 1: motor1antihorario();
-    break;
-
-    case 2: motor2antihorario();
-    break;
-
-    case 3: motor3antihorario();
-    break;
-  }
-}
-
-void cambioDeTurno()
-{
-  if((currentMillis - ultimoTiempo) > 2500)
-  {
-    Serial.println("cambio de turno");
-    ultimoTiempo = currentMillis;
-    turno++;
-    turno = turno > 3 ? 1 : turno;
-    pararMotores();
-    Serial.println(turno);
-  }
-}
-
-void cambioSentido()
-{
-  if((currentMillis - ultimoTiempo) > 2500)
-  {
-        Serial.println("cambio de sentido");
-    ultimoTiempo = currentMillis;
-    sentido *= -1;
-  }
-}
-
-void loopPruebaSubeYBaja()
-{
-
-  leerContactos();
- if(true)
- {
-         distancia = sensorDistancia.getDistancia();
-         if(distancia > 13)
-         {
-          sentido = 0;
-         }
-         if(motor1Max && motor2Max && motor3Max)
-         {
-          sentido = 1;
-         }
-
-         Serial.print(motor1Max);
-         Serial.print(motor2Max);
-         Serial.print(motor3Max);
-         printTab();
-         Serial.print(distancia);
-                  printTab();
-         Serial.println(sentido);
-
-         if(sentido == 1){
-          moverMotoresHorario();
-         }else {
-          moverMotoresAntihorario();
-         }
-         cambioDeTurno();
- }
-}
-
-void loop_contraer()
-{
-  contraerMotores();
+   Serial.print(F("a[x y z]:t \t"));
+   
+   Serial.print(lecturaX); printTab();
+   Serial.print(lecturaY); printTab();
+   Serial.print(lecturaZ); printTab();
 }
 
 void contraerMotores() 
 {
   leerContactos();
   if(motor1Max == LOW)
-  {
-    Serial.println("contrayendo 1");
     motor1antihorario();
-  }
   else
-  {
     pararMotor1();
-    if(motor2Max == LOW)
-    {
-      Serial.println("contrayendo 2");
-      motor2antihorario();
-    }
-     else
-     {
-        pararMotor2();
-        if(motor3Max == LOW)
-        {
-          Serial.println("contrayendo 3");
-          motor3antihorario();
-        }
-        else
-        {
-          Serial.println("fin contracción");
-          debeContraerMotores = false;
-        }
-     }
-  }
+  if(motor2Max == LOW)
+    motor2antihorario();
+  else
+    pararMotor2();
+  if(motor3Max == LOW)
+    motor3antihorario();
+  else
+    pararMotor3();
+  if(motor1Max == HIGH && motor2Max == HIGH && motor3Max == HIGH)
+    debeContraerMotores = false;
     
-}
-
-void extenderMotores() 
-{
-  turno = (millis() % 3000);
-  if(turno <= 999)
-    motor1horario();
-  if(turno >= 1000 && turno < 1999)
-    motor2horario();
-  if(turno >= 2000)
-    motor3horario();
 }

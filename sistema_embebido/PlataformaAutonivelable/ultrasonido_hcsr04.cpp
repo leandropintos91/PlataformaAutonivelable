@@ -9,7 +9,7 @@ ultrasonido_hcsr04::ultrasonido_hcsr04(int triggerConfiguracion, int echoConfigu
 	pinMode(echoConfiguracion, INPUT);  //pin como entrada
 }
 
-short ultrasonido_hcsr04::getDistancia()
+float ultrasonido_hcsr04::getDistancia()
 {
   long tiempo;
 	digitalWrite(triggerPin, HIGH);
@@ -18,7 +18,7 @@ short ultrasonido_hcsr04::getDistancia()
 	  digitalWrite(triggerPin, LOW);
 	  ultimoMicrosegundo = micros();
 	  tiempo = pulseIn(echoPin, HIGH); //obtenemos el ancho del pulso
-	  distancia = tiempo/59;             //escalamos el tiempo a una distancia en cm
+	  distancia = ((float)tiempo)/59;             //escalamos el tiempo a una distancia en cm
 	}
 	return distancia;
 }
