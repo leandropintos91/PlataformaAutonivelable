@@ -1,4 +1,3 @@
-
 //Acelerometro pins
 //GND - GND
 //VCC - VCC
@@ -11,6 +10,8 @@
 #include "motorControl.h"
 #include "botonControl.h"
 #include "ultrasonido_hcsr04.h"
+#include <SoftwareSerial.h> 
+#include "BTparser.h"
 
 #define MARGEN_ERROR_NIVEL_EJES_CON_HISTERISIS 0.25;
 #define MARGEN_ERROR_NIVEL_EJES_SIN_HISTERISIS 0.15;
@@ -18,7 +19,8 @@
 uint8_t mpuAddress = 0x68;  //Puede ser 0x68 o 0x69
 MPU6050 mpu(mpuAddress);
 ultrasonido_hcsr04 sensorDistancia(triggerDistancia, echoDistancia);
-float distancia = 0;
+float distancia = 0; //distancia medida por el ultrasonido
+float distBuscada  = 14; //distancia que se busca ajustar desde la app, por defecto 14.
 int modo = 1;
 float lecturaX, lecturaY, lecturaZ;
 int sensity=1024;
@@ -29,7 +31,14 @@ unsigned long currentMillis = 0;
 bool debeContraerMotores = true;
 bool histerisisY;
 bool histerisisX;
- 
+
+SoftwareSerial BT(10,11); // Definimos los pines RX y TX del Arduino conectados al Bluetooth
+char btCad[40];
+char c;
+int indCad = 0;
+bool btflag = false;
+BTparser btp1;
+
 void setup()
 {
    Serial.begin(2400);
@@ -52,8 +61,12 @@ void setup()
 }
  
 void loop()
-{
+{   
 
+     /***PRIMERO REVISA SI HAY COMANDOS ENTRANTES DESDE LA APLICACIÓN BLUETOOTH ***/
+     procesarEntrada(); //Lee si hay comandos bluetooth entrantes y los procesa
+
+    
     realizarMediciones();
     
     if (estadoPulsadores() == HIGH){
@@ -279,4 +292,58 @@ void contraerMotores()
   if(motor1Max == HIGH && motor2Max == HIGH && motor3Max == HIGH)
     debeContraerMotores = false;
     
+}
+
+void procesarEntrada(){
+     while(BT.available())    // Si llega un dato por el puerto BT se envía al monitor serial
+     {   
+        c =  BT.read();
+        if(c == ';')
+        {
+          indCad=0;
+          char btCad[40];
+          btflag = true;
+        }
+        else
+        {
+             btCad[indCad] = c;
+             indCad++;
+        }
+    }
+    if (btflag == true)
+    {
+        btflag = false;
+        btp1.parseString(btCad);
+    }
+
+    realizarTareas();
+}
+
+void realizarTareas()
+{
+    if(strcmp(btp1.getCode(), "MODE"))
+    {
+        modo = btp1.getVal1();
+    }
+    if(strcmp(btp1.getCode(), "STAT"))
+    {
+        realizarMediciones();
+        BT.write("RSTA ");
+        BT.write(modo);
+        BT.write(" ");
+        BT.write("");//aqui va el estado del led
+        BT.write(" ");
+        BT.write(distancia);//aquí enviar la altura con el ultrasonido
+        BT.write(" ");
+        BT.write(lecturaX);
+        BT.write(" ");
+        BT.write(lecturaY);
+        BT.write(" ");
+        BT.write(lecturaZ);
+        BT.write(";");
+    }
+    if(strcmp(btp1.getCode(), "SETH"))
+    {
+        distBuscada = btp1.getVal1(); 
+    }
 }
