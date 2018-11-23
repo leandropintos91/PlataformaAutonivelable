@@ -1,5 +1,5 @@
 #include "bluetooth.h"
-
+/*
 bool mensajeAcelerometro = false;
 bool mensajeLuz = false;
 bool mensajeProximidad = false;
@@ -80,4 +80,4 @@ void procesarMensaje(char c)
 void BTenviar(String msj)
 {
 	Serial.write(msj);
-}
+}*/
