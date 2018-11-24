@@ -112,6 +112,7 @@ void loop()
 					if(distancia == distanciaAnt)
 					{
 						pararMotores();
+						subiendoMotores = false;
 					} else {
 						distanciaAnt = distancia;
 						timeAnt = time;
@@ -333,6 +334,72 @@ void subirMotores()
 	subiendoMotores = true;
 }
 
+void subirHasta() 
+{
+	moverMotoresHorario();
+	time = 0;
+	distanciaAnt = 0;
+	while(distancia < distBuscada && (distancia != distanciaAnt))
+	{
+		if(time == 0)
+		{
+			time = millis();
+			timeAnt = time;
+			distancia = sensorDistancia.getDistancia();
+			distanciaAnt = distancia;
+		} else {
+			time = millis();
+			if((time - timeAnt)>= 1500)
+			{
+				distancia = sensorDistancia.getDistancia();
+				if(distancia == distanciaAnt)
+				{
+					pararMotores();
+				} else {
+					distanciaAnt = distancia;
+					timeAnt = time;
+				}
+			}
+		}
+		distancia = sensorDistancia.getDistancia();
+	}
+    pararMotores();
+}
+
+void bajarHasta() 
+{
+	while(distancia > distBuscada)
+	{
+		leerContactos();
+		if(motor1Max == LOW)
+			motor1antihorario();
+		else
+			pararMotor1();
+		if(motor2Max == LOW)
+			motor2antihorario();
+		else
+			pararMotor2();
+		if(motor3Max == LOW)
+			motor3antihorario();
+		else
+			pararMotor3();
+		distancia = sensorDistancia.getDistancia();
+		
+	}
+    pararMotores();
+}
+void moverHasta() 
+{
+    distancia = sensorDistancia.getDistancia();
+	if(distBuscada < distancia)
+	{
+		bajarHasta();
+	} else if (distancia > distBuscada)
+	{
+		subirHasta();
+	} 
+}
+
 void procesarEntrada(){
      while(BT.available())    // Si llega un dato por el puerto BT se envía al monitor serial
      {   
@@ -396,7 +463,10 @@ void realizarTareas()
     }
     if(strcmp(btp1.getCode(), "SETH"))
     {
+		pararMotores();
+		subiendoMotores = false;
         distBuscada = btp1.getVal1(); 
+		moverHasta();
     }
 	if(strcmp(btp1.getCode(), "SETL"))
     {
@@ -411,6 +481,7 @@ void realizarTareas()
     }
 	if(strcmp(btp1.getCode(), "SETP"))
     {
+	   pararMotores();
        btProx = btp1.getVal1(); 
 	   
 	   if(btProx == 1)
