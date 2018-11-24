@@ -23,6 +23,7 @@ float distancia = 0; //distancia medida por el ultrasonido
 float distanciaAnterior = 0;
 float distBuscada  = 14; //distancia que se busca ajustar desde la app, por defecto 14.
 int modo = 1;
+int btModo = 0;
 int btLed = 1;
 int btProx = 1;
 float lecturaX, lecturaY, lecturaZ;
@@ -341,8 +342,20 @@ void realizarTareas()
 {
     if(strcmp(btp1.getCode(), "MODE"))
     {
-        modo = btp1.getVal1();
-		BT.write("-RMOD OK;"); //verificar si cambia o no de modo y mandar un no si falla
+        btModo = btp1.getVal1();
+		if(modo == 1)
+		{
+			modo = btModo;
+			BT.write("-RMOD OK;");	
+		} else {
+			if(btModo == 1)
+			{
+				modo = btModo;
+				BT.write("-RMOD OK;");
+			} else {
+				BT.write("-RMOD NO;");
+			}
+		}
     }
     if(strcmp(btp1.getCode(), "STAT"))
     {

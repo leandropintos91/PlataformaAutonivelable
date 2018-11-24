@@ -149,9 +149,9 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
             public void onClick(View v)
             {
                     if (modoActual == 1) {
-                        mConnectedThread.write("-MODE 2\r\n");
+                        mConnectedThread.write("MODE 2\r\n");
                     } else {
-                        mConnectedThread.write("-MODE 1\r\n");
+                        mConnectedThread.write("MODE 1\r\n");
                     }
             }
         });
@@ -204,7 +204,7 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
 
         if(!sincronizarAcelerometro || !sincronizarLuz || !sincronizarProximidad) {
 
-           mConnectedThread.write("-STAT\r\n");
+           mConnectedThread.write("STAT\r\n");
 
            /* cola.add(caracterSensorAcelerometro + "ZZ" + caracterSensorAcelerometro);
             cola.add(caracterSensorLuz + "ZZ" + caracterSensorLuz);
@@ -339,7 +339,7 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
                         if (esInclinacionValida((double) event.values[0], (double) event.values[1], (double) event.values[2])) {
                             altura = obtenerAlturaMesa(event.values[1]);
                             textEstadoAltura.setText("Seteando altura a " + altura);
-                            mConnectedThread.write("-SETH " + altura + "\r\n");
+                            mConnectedThread.write("SETH " + altura + "\r\n");
                             //cola.add("#" + altura + "#");
                         }
 
@@ -354,13 +354,13 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
 
                                 textEstadoProximidad.setText("Proximidad detectada : Bajando plataforma");
                                 subirmesa = false;
-                                mConnectedThread.write("-SETP " + 1 + "\r\n");
+                                mConnectedThread.write("SETP " + 1 + "\r\n");
                                 //cola.add("&1&");
                             } else {
 
                                 textEstadoProximidad.setText("Proximidad detectada : Subiendo plataforma");
                                 subirmesa = true;
-                                mConnectedThread.write("-SETP " + 2 + "\r\n");
+                                mConnectedThread.write("SETP " + 2 + "\r\n");
                                 //cola.add("&2s&");
                             }
                         } else if (event.values[0] >= cota_proximidad) {
@@ -375,12 +375,12 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
                         if (event.values[0] < cota_LED) {
 
                             textEstadoLed.setText("Baja luminosidad : Prender LED");
-                            mConnectedThread.write("-SETL " + 1 + "\r\n");
+                            mConnectedThread.write("SETL " + 1 + "\r\n");
                             //cola.add("*1*");
                         } else if (event.values[0] >= cota_LED) {
 
                             textEstadoLed.setText("Luminosidad detectada : Apagar LED");
-                            mConnectedThread.write("-SETL " + 0 + "\r\n");
+                            mConnectedThread.write("SETL " + 0 + "\r\n");
                             //cola.add("*2*");
                         }
                         break;
