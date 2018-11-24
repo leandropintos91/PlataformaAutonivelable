@@ -12,6 +12,7 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.os.Bundle;
 import android.os.Handler;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -21,6 +22,8 @@ import android.widget.Toast;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.UUID;
 
 
@@ -32,7 +35,7 @@ import java.util.UUID;
 * */
 
 //******************************************** Hilo principal del Activity**************************************
-public class activity_comunicacion extends Activity implements SensorEventListener
+public class activity_comunicacion extends AppCompatActivity implements SensorEventListener
 {
 
     Handler bluetoothIn;
@@ -41,34 +44,66 @@ public class activity_comunicacion extends Activity implements SensorEventListen
     private BluetoothAdapter btAdapter = null;
     private BluetoothSocket btSocket = null;
     private StringBuilder recDataString = new StringBuilder();
+    private TextView textModo;
     private TextView textEstadoLed;
     private TextView textEstadoProximidad;
     private TextView textEstadoAltura;
     private Button  buttonDesconectar;
+    private Button  buttonCambiarModo;
+
+    //Banderas usadas para evitar que cambios en los sensores de luz/proximidad por debajo de la cota vuelvan a
+    // comunicarse con el embebido
     private Boolean activarLed = false;
     private Boolean activarProximidad = false;
+    private int modoActual = 1;
+
+    //Bandera para indicar si la mesa debe subir o bajar
     private Boolean subirmesa = false;
+
+
     private double altura;
 
+
+    //Banderas para detectar si ya se envio la solicitud de los datos iniciales al embebido
     private boolean sincronizarAcelerometro = false;
     private boolean sincronizarProximidad = false;
     private boolean sincronizarLuz = false;
 
-    private ConnectedThread mConnectedThread;
+    //Bandera para detectar si puedo enviar un mensaje al embebido
+    private boolean banderaEnvio = true;
 
+    //Hilo que realiza la comunicacion con el embebido
+    private ConnectedThread mConnectedThread;
+    //Hilo que recorre y procesa la cola de mensajes
+    //private HiloEnvio mHiloEnvio;
+
+    //Limite al cual se detecta cambio en el sensor de luz
+    // Si es menor: No hay luz
+    // Si es mayor: Hay luz
     private static  final int cota_LED = 5;
+
+    //Limite al cual se detecta cambio en el sensor de proximidad
+    // Si es menor: Detecta proximidad
+    // Si es mayor: Deja de detectar proximidad
     private static  final int cota_proximidad = 2;
+
+
+    //Caracteres usados para que el embebido detecte a que sensor corresponde el mensaje enviado
     private static final char caracterSensorLuz = '@';
     private static final char caracterSensorProximidad = '&';
     private static final char caracterSensorAcelerometro = '#';
 
-
+    //Caracteres usados para que android detecte a que sensor corresponde el mensaje recibido
     private static final char caracterReciboLuz = '-';
     private static final char caracterReciboProximidad = '/';
     private static final char caracterReciboAcelerometro = '_';
 
+    //Cola de mensajes
+    private Queue<String> cola;
+
     private static final UUID BTMODULEUUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
 
+    //MAC address del Bluetooth
     private static String address = null;
 
     @Override
@@ -83,9 +118,11 @@ public class activity_comunicacion extends Activity implements SensorEventListen
         textEstadoAltura = (TextView) findViewById(R.id.textViewAltura);
         textEstadoProximidad = (TextView) findViewById(R.id.textViewProximidad);
         textEstadoLed = (TextView) findViewById(R.id.textViewEstadoLed);
+        textModo = (TextView) findViewById(R.id.textViewModo);
         buttonDesconectar = (Button) findViewById(R.id.buttonDesconectar);
+        buttonCambiarModo = (Button) findViewById(R.id.buttonCambiarModo);
         bluetoothIn = Handler_Msg_Hilo_Principal();
-
+        cola = new LinkedList<String>();
         buttonDesconectar.setOnClickListener(new View.OnClickListener()
         {
             @Override
@@ -106,11 +143,23 @@ public class activity_comunicacion extends Activity implements SensorEventListen
             }
         });
 
+        buttonCambiarModo.setOnClickListener(new View.OnClickListener()
+        {
+            @Override
+            public void onClick(View v)
+            {
+                    if (modoActual == 1) {
+                        mConnectedThread.write("-MODE 2\r\n");
+                    } else {
+                        mConnectedThread.write("-MODE 1\r\n");
+                    }
+            }
+        });
     }
 
     @Override
-    //Cada vez que se detecta el evento OnResume se establece la comunicacion con el HC05, creando un
-    //socketBluethoot
+    //En el metodo onResume se inicializan los threads, se crea el bluetooth socket y se envian los
+    //mensajes de sincronizacion
     public void onResume() {
         super.onResume();
 
@@ -128,7 +177,7 @@ public class activity_comunicacion extends Activity implements SensorEventListen
         }
         catch (IOException e)
         {
-            showToast( "La creacción del Socket fallo");
+            showToast( "La creación del Socket fallo");
         }
 
         try
@@ -147,16 +196,19 @@ public class activity_comunicacion extends Activity implements SensorEventListen
             }
         }
 
-        //Una establecida la conexion con el Hc05 se crea el hilo secundario, el cual va a recibir
-        // los datos de Arduino atraves del bluethoot
         mConnectedThread = new ConnectedThread(btSocket);
         mConnectedThread.start();
 
+        /*mHiloEnvio = new HiloEnvio();
+        mHiloEnvio.start();*/
+
         if(!sincronizarAcelerometro || !sincronizarLuz || !sincronizarProximidad) {
 
-            mConnectedThread.write(caracterSensorAcelerometro + "ZZ" + caracterSensorAcelerometro);
-            mConnectedThread.write(caracterSensorLuz + "ZZ" + caracterSensorLuz);
-            mConnectedThread.write(caracterSensorProximidad + "ZZ" + caracterSensorProximidad);
+           mConnectedThread.write("-STAT\r\n");
+
+           /* cola.add(caracterSensorAcelerometro + "ZZ" + caracterSensorAcelerometro);
+            cola.add(caracterSensorLuz + "ZZ" + caracterSensorLuz);
+            cola.add(caracterSensorProximidad + "ZZ" + caracterSensorProximidad);*/
         }
     }
 
@@ -175,7 +227,7 @@ public class activity_comunicacion extends Activity implements SensorEventListen
             sincronizarProximidad = false;
 
         } catch (IOException e2) {
-            //insert code to deal with this
+
         }
     }
 
@@ -197,7 +249,7 @@ public class activity_comunicacion extends Activity implements SensorEventListen
                     //voy concatenando el msj
                     String readMessage = (String) msg.obj;
                     recDataString.append(readMessage);
-                    int endOfLineIndex = recDataString.indexOf("\r\n");
+                    int endOfLineIndex = recDataString.indexOf(";");
 
                     //cuando recibo toda una linea la muestro en el layout
                     if (endOfLineIndex > 0)
@@ -213,28 +265,36 @@ public class activity_comunicacion extends Activity implements SensorEventListen
 
     }
 
+    //Funcion para procesar los mensajes que recibo del bluetooth
     private void procesarMensaje(String mensaje)
     {
-        char inicio = mensaje.charAt(0);
         String[] m = null;
+        m = mensaje.split(" ");
+        String inicio = m[0];
         switch (inicio)
         {
-            case caracterReciboAcelerometro:
-                m = mensaje.split(Character.toString(caracterReciboAcelerometro));
-                textEstadoAltura.setText(m[1] + " cms");
-                sincronizarAcelerometro = true;
+            case "RSTA":
+                textModo.setText("Plataforma en Modo " + m[1]);
+                textEstadoLed.setText("Estado LED: " + m[2]);
+                textEstadoAltura.setText("Altura actual: " + m[3]);
                 break;
-            case caracterReciboLuz:
-                m = mensaje.split(Character.toString(caracterReciboLuz));
-                textEstadoLed.setText(m[1]);
-                sincronizarLuz = true;
+            case "-RMOD":
+                if(m[1] == "OK")
+                    Toast.makeText(activity_comunicacion.this, "Modo modificado correctamente", Toast.LENGTH_LONG).show();
+                else
+                    Toast.makeText(activity_comunicacion.this, "Error al modificar modo", Toast.LENGTH_LONG).show();
                 break;
-            case caracterReciboProximidad:
-                m = mensaje.split(Character.toString(caracterReciboProximidad));
-                textEstadoProximidad.setText(m[1]);
-                sincronizarProximidad = true;
+            case "-MAXH":
+                    Toast.makeText(activity_comunicacion.this, "Altura maxima nivelada", Toast.LENGTH_LONG).show();
+                break;
+            case "-MINH":
+                    Toast.makeText(activity_comunicacion.this, "Altura minima nivelada", Toast.LENGTH_LONG).show();
+                break;
+            case "-NERR":
+                    Toast.makeText(activity_comunicacion.this, "No es posible nivelar", Toast.LENGTH_LONG).show();
                 break;
             default:
+                banderaEnvio = true;
                 break;
         }
 
@@ -245,13 +305,15 @@ public class activity_comunicacion extends Activity implements SensorEventListen
         Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT).show();
     }
 
+    //Inicializar los sensores
     protected void Ini_Sensores()
     {
         mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),   SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT), SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY),       SensorManager.SENSOR_DELAY_NORMAL);
-        mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),SensorManager.SENSOR_DELAY_NORMAL);
     }
+
+    //Parar la deteccion de los sensores
     private void Parar_Sensores()
     {
 
@@ -267,9 +329,6 @@ public class activity_comunicacion extends Activity implements SensorEventListen
     {
         String txt = "";
 
-        // Cada sensor puede lanzar un thread que pase por aqui
-        // Para asegurarnos ante los accesos simultaneos sincronizamos esto
-
         if(sincronizarProximidad && sincronizarLuz && sincronizarAcelerometro) {
             synchronized (this) {
                 Log.d("sensor", event.sensor.getName());
@@ -279,8 +338,9 @@ public class activity_comunicacion extends Activity implements SensorEventListen
                     case Sensor.TYPE_ACCELEROMETER:
                         if (esInclinacionValida((double) event.values[0], (double) event.values[1], (double) event.values[2])) {
                             altura = obtenerAlturaMesa(event.values[1]);
-                            textEstadoAltura.setText(altura + " cms");
-                            mConnectedThread.write("#" + altura + "#");
+                            textEstadoAltura.setText("Seteando altura a " + altura);
+                            mConnectedThread.write("-SETH " + altura + "\r\n");
+                            //cola.add("#" + altura + "#");
                         }
 
                         break;
@@ -294,12 +354,14 @@ public class activity_comunicacion extends Activity implements SensorEventListen
 
                                 textEstadoProximidad.setText("Proximidad detectada : Bajando plataforma");
                                 subirmesa = false;
-                                mConnectedThread.write("&1&");
+                                mConnectedThread.write("-SETP " + 1 + "\r\n");
+                                //cola.add("&1&");
                             } else {
 
                                 textEstadoProximidad.setText("Proximidad detectada : Subiendo plataforma");
                                 subirmesa = true;
-                                mConnectedThread.write("&2&");
+                                mConnectedThread.write("-SETP " + 2 + "\r\n");
+                                //cola.add("&2s&");
                             }
                         } else if (event.values[0] >= cota_proximidad) {
 
@@ -313,11 +375,13 @@ public class activity_comunicacion extends Activity implements SensorEventListen
                         if (event.values[0] < cota_LED) {
 
                             textEstadoLed.setText("Baja luminosidad : Prender LED");
-                            mConnectedThread.write("*1*");
+                            mConnectedThread.write("-SETL " + 1 + "\r\n");
+                            //cola.add("*1*");
                         } else if (event.values[0] >= cota_LED) {
 
                             textEstadoLed.setText("Luminosidad detectada : Apagar LED");
-                            mConnectedThread.write("*2*");
+                            mConnectedThread.write("-SETL " + 0 + "\r\n");
+                            //cola.add("*2*");
                         }
                         break;
 
@@ -363,7 +427,6 @@ public class activity_comunicacion extends Activity implements SensorEventListen
     }
 
 
-    // Metodo que escucha el cambio de sensibilidad de los sensores
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy)
     {
@@ -434,12 +497,40 @@ public class activity_comunicacion extends Activity implements SensorEventListen
         }
     }
 
+    //Thread que recorre la cola de mensajes y envia
+    /*private class HiloEnvio extends Thread
+    {
+
+        public HiloEnvio()
+        { }
+
+        //metodo run del hilo, que va a entrar en una espera activa para enviar mensajes que esten en la cola
+        public void run()
+        {
+            while (true)
+            {
+                try
+                {
+                    if(!cola.isEmpty() && banderaEnvio)
+                    {
+                        banderaEnvio = false;
+                        mConnectedThread.write(cola.poll());
+                    }
+
+                } catch (Exception e) {
+                    break;
+                }
+            }
+        }
+    }*/
+
     @Override
     protected void onStop()
     {
 
         try
         {
+
 
             btSocket.close();
             sincronizarAcelerometro = false;

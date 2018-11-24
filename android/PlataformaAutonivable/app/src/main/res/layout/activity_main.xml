@@ -10,7 +10,7 @@
         android:id="@+id/buttonConectar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Activar Bluetooth"
+        android:text="@string/buttonConectar"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintHorizontal_bias="0.502"
         app:layout_constraintLeft_toLeftOf="parent"
@@ -22,17 +22,18 @@
         android:id="@+id/textView"
         android:layout_width="133dp"
         android:layout_height="27dp"
-        android:text="Estado de conexion:"
+        android:text="@string/textView"
         app:layout_constraintBottom_toBottomOf="@+id/buttonConectar"
+        app:layout_constraintHorizontal_bias="0.163"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.179"
-        tools:layout_editor_absoluteX="31dp" />
+        app:layout_constraintVertical_bias="0.184" />
 
     <TextView
         android:id="@+id/textViewEstado"
         android:layout_width="140dp"
         android:layout_height="28dp"
-        android:layout_marginRight="56dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintTop_toTopOf="parent"

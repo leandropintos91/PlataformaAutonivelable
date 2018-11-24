@@ -4,6 +4,7 @@ import java.text.DecimalFormat;
 
 import android.Manifest;
 import android.app.Activity;
+import android.support.v7.app.AppCompatActivity;
 import android.content.Context;
 import android.content.Intent;
 import java.lang.reflect.Method;
@@ -23,7 +24,7 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.Set;
 
-public class MainActivity extends Activity
+public class MainActivity extends AppCompatActivity
 {
 
     public BluetoothAdapter mBluetoothAdapter;
@@ -41,6 +42,7 @@ public class MainActivity extends Activity
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_main);
+
 
         buttonConectar = (Button) findViewById(R.id.buttonConectar);
         textViewEstado = (TextView) findViewById(R.id.textViewEstado);

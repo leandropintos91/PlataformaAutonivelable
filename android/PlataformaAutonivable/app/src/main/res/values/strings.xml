@@ -1,3 +1,11 @@
 <resources>
-    <string name="app_name">PlataformaAutonivelable</string>
+    <string name="app_name">Plataforma Autonivelable</string>
+    <string name="buttonConectar">Conectar</string>
+    <string name="textView">Estado de conexion :</string>
+    <string name="textView2">Modo :</string>
+    <string name="textView7">Estado de led :</string>
+    <string name="textView4">Altura de la plataforma :</string>
+    <string name="textView6">Estado proximidad :</string>
+    <string name="buttonDesconectar">Desconectar </string>
+    <string name="buttonCambiarModo">Cambiar Modo</string>
 </resources>
