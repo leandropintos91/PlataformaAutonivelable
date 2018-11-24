@@ -4,10 +4,8 @@ Recibir:
 -MODE "nro" 	-> Modo en que trabajará la plataforma
 -STAT 		-> Petición de enviar su estado
 -SETH "nro"	-> Setear altura general
--LEVX "nro"	-> Recibe nivel X del celular para modo imitador
--LEVY "nro"	-> Recibe nivel Y del celular para modo imitador
--LEVZ "nro"	-> Recibe nivel Z del celular para modo imitador
-
+-SETL "nro" -> Apagar o encender led
+-SETP "nro" -> Subir o bajar plataforma
 
 Enviar:
 

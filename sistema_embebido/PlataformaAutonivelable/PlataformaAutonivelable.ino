@@ -20,10 +20,14 @@ uint8_t mpuAddress = 0x68;  //Puede ser 0x68 o 0x69
 MPU6050 mpu(mpuAddress);
 ultrasonido_hcsr04 sensorDistancia(triggerDistancia, echoDistancia);
 float distancia = 0; //distancia medida por el ultrasonido
+float distanciaAnterior = 0;
 float distBuscada  = 14; //distancia que se busca ajustar desde la app, por defecto 14.
 int modo = 1;
+int btLed = 1;
+int btProx = 1;
 float lecturaX, lecturaY, lecturaZ;
 int sensity=1024;
+bool subiendoMotores = false;
 bool motor1Max = false;
 bool motor2Max = false;
 bool motor3Max = false;
@@ -65,29 +69,37 @@ void loop()
 
      /***PRIMERO REVISA SI HAY COMANDOS ENTRANTES DESDE LA APLICACIÓN BLUETOOTH ***/
      procesarEntrada(); //Lee si hay comandos bluetooth entrantes y los procesa
-
-    
-    realizarMediciones();
-    
-    if (estadoPulsadores() == HIGH){
-      if(debeContraerMotores)
-      {
-        contraerMotores();
-      }
-      else
-      {
-        if(!plataformaNivelada())
-          nivelar();
-        else
-          pararMotores();    
-      }
-      
-    }
-    else
-    {   
-      pararMotores();
-      debeContraerMotores = true;
-    }
+	
+	if(modo == 1)
+	{
+		realizarMediciones();
+		
+		if (estadoPulsadores() == HIGH){
+		  if(debeContraerMotores)
+		  {
+			contraerMotores();
+		  }
+		  else
+		  {
+			if(!plataformaNivelada())
+			  nivelar();
+			else
+			  pararMotores();    
+		  }
+		  
+		}
+		else
+		{   
+		  pararMotores();
+		  debeContraerMotores = true;
+		}
+	} else {
+		
+		if(subiendoMotores){
+			//verificar si llega hasta arriba y para motores
+		}
+		
+	}
 }
 
 void nivelar()
@@ -294,6 +306,12 @@ void contraerMotores()
     
 }
 
+void subirMotores() 
+{
+    moverMotoresHorario();
+	subiendoMotores = true;
+}
+
 void procesarEntrada(){
      while(BT.available())    // Si llega un dato por el puerto BT se envía al monitor serial
      {   
@@ -324,6 +342,7 @@ void realizarTareas()
     if(strcmp(btp1.getCode(), "MODE"))
     {
         modo = btp1.getVal1();
+		BT.write("-RMOD OK;"); //verificar si cambia o no de modo y mandar un no si falla
     }
     if(strcmp(btp1.getCode(), "STAT"))
     {
@@ -345,5 +364,27 @@ void realizarTareas()
     if(strcmp(btp1.getCode(), "SETH"))
     {
         distBuscada = btp1.getVal1(); 
+    }
+	if(strcmp(btp1.getCode(), "SETL"))
+    {
+		btLed = btp1.getVal1();
+		if(btLed == 1)
+	    {
+		  prenderLed();
+	    } else if(btLed == 0) {
+		  apagarLed();
+	    }
+		
+    }
+	if(strcmp(btp1.getCode(), "SETP"))
+    {
+       btProx = btp1.getVal1(); 
+	   
+	   if(btProx == 1)
+	   {
+		  contraerMotores();
+	   } else if(btProx == 2) {
+		  subirMotores();
+	   }
     }
 }
