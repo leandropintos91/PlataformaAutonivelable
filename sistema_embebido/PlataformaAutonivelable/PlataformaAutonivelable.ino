@@ -13,8 +13,8 @@
 #include <SoftwareSerial.h> 
 #include "BTparser.h"
 
-#define MARGEN_ERROR_NIVEL_EJES_CON_HISTERISIS 0.25;
-#define MARGEN_ERROR_NIVEL_EJES_SIN_HISTERISIS 0.15;
+#define MARGEN_ERROR_NIVEL_EJES_CON_HISTERISIS 0.3
+#define MARGEN_ERROR_NIVEL_EJES_SIN_HISTERISIS 0.2
 
 uint8_t mpuAddress = 0x68;  //Puede ser 0x68 o 0x69
 MPU6050 mpu(mpuAddress);
@@ -36,10 +36,11 @@ bool motor2Max = false;
 bool motor3Max = false;
 unsigned long currentMillis = 0;
 bool debeContraerMotores = true;
-bool histerisisY;
-bool histerisisX;
+bool histerisisY = false;
+bool histerisisX = false;
+bool debugMediciones = true;
 
-SoftwareSerial BT(10,11); // Definimos los pines RX y TX del Arduino conectados al Bluetooth
+SoftwareSerial BT(pinRx,pinTx); // Definimos los pines RX y TX del Arduino conectados al Bluetooth
 char btCad[40];
 char c;
 int indCad = 0;
@@ -48,7 +49,7 @@ BTparser btp1;
 
 void setup()
 {
-   Serial.begin(2400);
+   Serial.begin(1200);
    Wire.begin();
    mpu.initialize();
    Serial.println(mpu.testConnection() ? F("IMU iniciado correctamente") : F("Error al iniciar IMU"));
@@ -64,20 +65,22 @@ void setup()
    pinMode(finMotor1, INPUT);
    pinMode(finMotor2, INPUT);
    pinMode(finMotor3, INPUT);
+   pinMode(pinLedBlanco, OUTPUT);
+   pinMode(pinLedVerde, OUTPUT);
+   pinMode(pinLedRojo, OUTPUT);
    pararMotores();
 }
  
 void loop()
 {   
-
      /***PRIMERO REVISA SI HAY COMANDOS ENTRANTES DESDE LA APLICACIÓN BLUETOOTH ***/
      procesarEntrada(); //Lee si hay comandos bluetooth entrantes y los procesa
 	
 	if(modo == 1)
 	{
 		realizarMediciones();
-		
-		if (estadoPulsadores() == HIGH){
+		if (estadoPulsadores() == HIGH)
+		{
 		  if(debeContraerMotores)
 		  {
 			contraerMotores();
@@ -218,11 +221,11 @@ bool ejeXNivelado()
   bool nivelado = false;
   if(histerisisX)
   {
-    nivelado = abs(lecturaX) < MARGEN_ERROR_NIVEL_EJES_CON_HISTERISIS;
+    nivelado = modulo(lecturaX) < MARGEN_ERROR_NIVEL_EJES_CON_HISTERISIS;
   }
   else
   {
-    nivelado = abs(lecturaX) < MARGEN_ERROR_NIVEL_EJES_SIN_HISTERISIS;
+    nivelado = modulo(lecturaX) < MARGEN_ERROR_NIVEL_EJES_SIN_HISTERISIS;
   }
 
   histerisisX = nivelado;
@@ -234,11 +237,11 @@ bool ejeYNivelado()
   bool nivelado = false;
   if(histerisisY)
   {
-    nivelado = abs(lecturaY) <= MARGEN_ERROR_NIVEL_EJES_CON_HISTERISIS;
+    nivelado = modulo(lecturaY) <= MARGEN_ERROR_NIVEL_EJES_CON_HISTERISIS;
   }
   else
   {
-    nivelado = abs(lecturaY) < MARGEN_ERROR_NIVEL_EJES_SIN_HISTERISIS;
+    nivelado = modulo(lecturaY) < MARGEN_ERROR_NIVEL_EJES_SIN_HISTERISIS;
   }
 
   histerisisY = nivelado;
@@ -262,20 +265,23 @@ void realizarMediciones()
 
 void imprimirMediciones()
 {
-  Serial.print(lecturaX);
-  printTab();
-  Serial.print(lecturaY);
-  printTab();
-  Serial.print(distancia);
-  printTab();
-  Serial.print(ejeXNivelado());
-  printTab();
-  Serial.print(ejeYNivelado());
-  printTab();
-  Serial.print(histerisisX);
-  printTab();
-  Serial.print(histerisisY);
-  Serial.println(" ");
+  if(debugMediciones)
+  {
+    Serial.print(lecturaX);
+    printTab();
+    Serial.print(lecturaY);
+    printTab();
+    Serial.print(distancia);
+    printTab();
+    Serial.print(ejeXNivelado());
+    printTab();
+    Serial.print(ejeYNivelado());
+    printTab();
+    Serial.print(histerisisX);
+    printTab();
+    Serial.print(histerisisY);
+    Serial.println(" ");   
+  }
 }
 
 void calcularValoresInclinacion()
@@ -401,7 +407,7 @@ void moverHasta()
 }
 
 void procesarEntrada(){
-     while(BT.available())    // Si llega un dato por el puerto BT se envía al monitor serial
+     if(BT.available())    // Si llega un dato por el puerto BT se envía al monitor serial
      {   
         c =  BT.read();
         if(c == ';')
@@ -427,25 +433,26 @@ void procesarEntrada(){
 
 void realizarTareas()
 {
-    if(strcmp(btp1.getCode(), "MODE"))
-    {
+    if(strcmp(btp1.getCode(), "MODE") == 0)
+    {   Serial.print("-----cambio modo-----");
         btModo = btp1.getVal1();
-		if(modo == 1)
-		{
-			modo = btModo;
-			BT.write("-RMOD OK;");	
-		} else {
-			if(btModo == 1)
-			{
-				modo = btModo;
-				BT.write("-RMOD OK;");
-			} else {
-				BT.write("-RMOD NO;");
-			}
-		}
+    		if(modo == 1)
+    		{
+    			modo = btModo;
+    			BT.write("-RMOD OK;");	
+    		} else {
+    			if(btModo == 1)
+    			{
+    				modo = btModo;
+    				BT.write("-RMOD OK;");
+    			} else {
+    				BT.write("-RMOD NO;");
+    			}
+    		}
     }
-    if(strcmp(btp1.getCode(), "STAT"))
-    {
+    if(strcmp(btp1.getCode(), "STAT")  == 0)
+    {   
+      Serial.println(" ---- LLEGO STAT -----");
         realizarMediciones();
         BT.write("RSTA ");
         BT.write(modo);
@@ -461,25 +468,25 @@ void realizarTareas()
         BT.write(lecturaZ);
         BT.write(";");
     }
-    if(strcmp(btp1.getCode(), "SETH"))
+    if(strcmp(btp1.getCode(), "SETH")  == 0)
     {
 		pararMotores();
 		subiendoMotores = false;
         distBuscada = btp1.getVal1(); 
 		moverHasta();
     }
-	if(strcmp(btp1.getCode(), "SETL"))
+	if(strcmp(btp1.getCode(), "SETL")  == 0)
     {
 		btLed = btp1.getVal1();
 		if(btLed == 1)
 	    {
-		  prenderLed();
+		  prenderLedLampara();
 	    } else if(btLed == 0) {
-		  apagarLed();
+		  apagarLedLampara();
 	    }
 		
     }
-	if(strcmp(btp1.getCode(), "SETP"))
+	if(strcmp(btp1.getCode(), "SETP")  == 0)
     {
 	   pararMotores();
        btProx = btp1.getVal1(); 
@@ -491,4 +498,27 @@ void realizarTareas()
 		  subirMotores();
 	   }
     }
+}
+
+void prenderLedLampara()
+{
+  //TODO
+}
+
+
+void apagarLedLampara()
+{
+  //TODO
+}
+
+float modulo(float numero)
+{
+  if(numero >= 0L)
+  {
+    return numero;
+  }
+  else
+  {
+    return numero * (-1L);
+  }
 }
