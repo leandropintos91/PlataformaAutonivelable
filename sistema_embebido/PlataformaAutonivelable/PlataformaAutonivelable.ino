@@ -20,7 +20,9 @@ uint8_t mpuAddress = 0x68;  //Puede ser 0x68 o 0x69
 MPU6050 mpu(mpuAddress);
 ultrasonido_hcsr04 sensorDistancia(triggerDistancia, echoDistancia);
 float distancia = 0; //distancia medida por el ultrasonido
-float distanciaAnterior = 0;
+float distanciaAnt = 0;
+int time = 0;
+int timeAnt = 0;
 float distBuscada  = 14; //distancia que se busca ajustar desde la app, por defecto 14.
 int modo = 1;
 int btModo = 0;
@@ -94,10 +96,28 @@ void loop()
 		  pararMotores();
 		  debeContraerMotores = true;
 		}
-	} else {
-		
+	} else {		
 		if(subiendoMotores){
-			//verificar si llega hasta arriba y para motores
+			if(time == 0)
+			{
+				time = millis();
+				timeAnt = time;
+				distancia = sensorDistancia.getDistancia();
+				distanciaAnt = distancia;
+			} else {
+				time = millis();
+				if((time - timeAnt)>= 1500)
+				{
+					distancia = sensorDistancia.getDistancia();
+					if(distancia == distanciaAnt)
+					{
+						pararMotores();
+					} else {
+						distanciaAnt = distancia;
+						timeAnt = time;
+					}
+				}
+			}
 		}
 		
 	}
