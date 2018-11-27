@@ -1,16 +1,16 @@
 #include "Arduino.h"
 
 //bluetooth
-#define rx 13
-#define tx 30
+#define pinRx 3
+#define pinTx 2
 
 
 //motores
 
 //pulsador
-#define pulsador1 2
-#define pulsador2 3
-#define pulsador3 4
+#define pulsador1 52
+#define pulsador2 50
+#define pulsador3 48
 
 #define finMotor1 5
 #define finMotor2 6
@@ -25,6 +25,10 @@
 
 #define triggerDistancia 30
 #define echoDistancia 31
+
+#define pinLedVerde 34
+#define pinLedRojo 35
+#define pinLedBlanco 36
 
 
 
