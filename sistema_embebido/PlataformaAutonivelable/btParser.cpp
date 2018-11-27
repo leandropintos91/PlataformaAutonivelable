@@ -15,7 +15,7 @@ void BTparser::parseString(char * in)
 	int j=0;
 	int f=0;
 	char aux[40];
-	while (!strcmp(in+i, "\r\n") || *(in+i) != '\0')
+	while (!strcmp(in+i, ";") || *(in+i) != '\0')
 	{	
 		if (*(in+i) != 32) //32 es el ascii de el caracter espacio
 		{
