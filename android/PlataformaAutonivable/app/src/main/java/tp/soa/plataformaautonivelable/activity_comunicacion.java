@@ -26,6 +26,8 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.UUID;
 
+import static java.lang.Math.abs;
+
 
 /*
 *
@@ -50,6 +52,9 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
     private TextView textEstadoAltura;
     private Button  buttonDesconectar;
     private Button  buttonCambiarModo;
+    private Button buttonSetInclinacion;
+
+    boolean enviarInclinacion = false;
 
     //Banderas usadas para evitar que cambios en los sensores de luz/proximidad por debajo de la cota vuelvan a
     // comunicarse con el embebido
@@ -62,12 +67,6 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
 
 
     private double altura;
-
-
-    //Banderas para detectar si ya se envio la solicitud de los datos iniciales al embebido
-    private boolean sincronizarAcelerometro = false;
-    private boolean sincronizarProximidad = false;
-    private boolean sincronizarLuz = false;
 
     //Bandera para detectar si puedo enviar un mensaje al embebido
     private boolean banderaEnvio = true;
@@ -121,6 +120,7 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
         textModo = (TextView) findViewById(R.id.textViewModo);
         buttonDesconectar = (Button) findViewById(R.id.buttonDesconectar);
         buttonCambiarModo = (Button) findViewById(R.id.buttonCambiarModo);
+        buttonSetInclinacion = (Button) findViewById(R.id.buttonSetInclinacion);
         bluetoothIn = Handler_Msg_Hilo_Principal();
         cola = new LinkedList<String>();
         buttonDesconectar.setOnClickListener(new View.OnClickListener()
@@ -149,10 +149,19 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
             public void onClick(View v)
             {
                     if (modoActual == 1) {
-                        mConnectedThread.write("MODE 2\r\n");
+                        modoActual = 2;
                     } else {
-                        mConnectedThread.write("MODE 1\r\n");
+                        modoActual = 1;
                     }
+                    mConnectedThread.write("MODE " + modoActual + ";");
+                    System.out.println("----- ENVIE MODO " + modoActual + " -----");
+            }
+        });
+
+        buttonSetInclinacion.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                enviarInclinacion = true;
             }
         });
     }
@@ -170,7 +179,7 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
         address= extras.getString("Direccion_Bluethoot");
 
         BluetoothDevice device = btAdapter.getRemoteDevice(address);
-        Ini_Sensores();
+
         try
         {
             btSocket = createBluetoothSocket(device);
@@ -198,18 +207,7 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
 
         mConnectedThread = new ConnectedThread(btSocket);
         mConnectedThread.start();
-
-        /*mHiloEnvio = new HiloEnvio();
-        mHiloEnvio.start();*/
-
-        if(!sincronizarAcelerometro || !sincronizarLuz || !sincronizarProximidad) {
-
-           mConnectedThread.write("STAT\r\n");
-
-           /* cola.add(caracterSensorAcelerometro + "ZZ" + caracterSensorAcelerometro);
-            cola.add(caracterSensorLuz + "ZZ" + caracterSensorLuz);
-            cola.add(caracterSensorProximidad + "ZZ" + caracterSensorProximidad);*/
-        }
+       mConnectedThread.write("STAT;");
     }
 
 
@@ -222,10 +220,6 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
         {
 
             btSocket.close();
-            sincronizarAcelerometro = false;
-            sincronizarLuz = false;
-            sincronizarProximidad = false;
-
         } catch (IOException e2) {
 
         }
@@ -274,13 +268,17 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
         switch (inicio)
         {
             case "RSTA":
-                textModo.setText("Plataforma en Modo " + m[1]);
+                refrescarTextoModo();
                 textEstadoLed.setText("Estado LED: " + m[2]);
                 textEstadoAltura.setText("Altura actual: " + m[3]);
                 break;
             case "-RMOD":
-                if(m[1] == "OK")
+                if(m[1].compareTo("OK;") == 0)
+                {
                     Toast.makeText(activity_comunicacion.this, "Modo modificado correctamente", Toast.LENGTH_LONG).show();
+                    refrescarTextoModo();
+                    Ini_Sensores();
+                }
                 else
                     Toast.makeText(activity_comunicacion.this, "Error al modificar modo", Toast.LENGTH_LONG).show();
                 break;
@@ -299,6 +297,10 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
         }
 
 
+    }
+
+    private void refrescarTextoModo() {
+        textModo.setText(Integer.toString(modoActual));
     }
 
     private void showToast(String message) {
@@ -329,19 +331,25 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
     {
         String txt = "";
 
-        if(sincronizarProximidad && sincronizarLuz && sincronizarAcelerometro) {
             synchronized (this) {
                 Log.d("sensor", event.sensor.getName());
 
                 switch (event.sensor.getType()) {
 
                     case Sensor.TYPE_ACCELEROMETER:
-                        if (esInclinacionValida((double) event.values[0], (double) event.values[1], (double) event.values[2])) {
+                        /*if (esInclinacionValida((double) event.values[0], (double) event.values[1], (double) event.values[2])) {
                             altura = obtenerAlturaMesa(event.values[1]);
                             textEstadoAltura.setText("Seteando altura a " + altura);
-                            mConnectedThread.write("SETH " + altura + "\r\n");
-                            //cola.add("#" + altura + "#");
+                            mConnectedThread.write("SETH " + altura + ";");
+                        }*/
+
+                        double inclinacionEjeY = (double) event.values[1];
+                        System.out.println("inclinacion = " + inclinacionEjeY);
+                        if(enviarInclinacion && abs(inclinacionEjeY) > 9.8/2) {
+                            altura = inclinacionEjeY > 0 ? 1 : -1;
+                            mConnectedThread.write("SETH " + altura + ";");
                         }
+                        enviarInclinacion = false;
 
                         break;
 
@@ -354,13 +362,15 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
 
                                 textEstadoProximidad.setText("Proximidad detectada : Bajando plataforma");
                                 subirmesa = false;
-                                mConnectedThread.write("SETP " + 1 + "\r\n");
+                                mConnectedThread.write("SETP " + 1 + ";");
+                                System.out.println(" ------- ENVIE ALTURA MINIMA ------- ");
                                 //cola.add("&1&");
                             } else {
 
                                 textEstadoProximidad.setText("Proximidad detectada : Subiendo plataforma");
                                 subirmesa = true;
-                                mConnectedThread.write("SETP " + 2 + "\r\n");
+                                mConnectedThread.write("SETP " + 2 + ";");
+                                System.out.println(" ------- ENVIE ALTURA MAXIMA ------- ");
                                 //cola.add("&2s&");
                             }
                         } else if (event.values[0] >= cota_proximidad) {
@@ -375,19 +385,18 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
                         if (event.values[0] < cota_LED) {
 
                             textEstadoLed.setText("Baja luminosidad : Prender LED");
-                            mConnectedThread.write("SETL " + 1 + "\r\n");
+                            mConnectedThread.write("SETL " + 1 + ";");
                             //cola.add("*1*");
                         } else if (event.values[0] >= cota_LED) {
 
                             textEstadoLed.setText("Luminosidad detectada : Apagar LED");
-                            mConnectedThread.write("SETL " + 0 + "\r\n");
+                            mConnectedThread.write("SETL " + 0 + ";");
                             //cola.add("*2*");
                         }
                         break;
 
                 }
             }
-        }
 
     }
 
@@ -533,9 +542,6 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
 
 
             btSocket.close();
-            sincronizarAcelerometro = false;
-            sincronizarLuz = false;
-            sincronizarProximidad = false;
             Parar_Sensores();
 
         } catch (IOException e2) {
