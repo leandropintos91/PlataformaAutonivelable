@@ -350,7 +350,6 @@ void printTab()
 
 void contraerMotores()
 {
-  leerContactos();
   moverMotoresAntihorario();
   if (motor1Max == HIGH && motor2Max == HIGH && motor3Max == HIGH)
   {
