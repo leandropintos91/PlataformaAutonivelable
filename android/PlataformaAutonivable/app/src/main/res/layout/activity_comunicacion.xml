@@ -6,6 +6,20 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <Button
+        android:id="@+id/buttonSetInclinacion"
+        android:layout_width="164dp"
+        android:layout_height="49dp"
+        android:layout_marginStart="204dp"
+        android:text="@string/buttonSetInclinacion"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintHorizontal_bias="0.072"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.705" />
+
     <TextView
         android:id="@+id/textViewModo"
         android:layout_width="151dp"
@@ -113,10 +127,13 @@
         android:id="@+id/buttonCambiarModo"
         android:layout_width="164dp"
         android:layout_height="49dp"
+        android:layout_marginStart="16dp"
         android:text="@string/buttonCambiarModo"
         app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintHorizontal_bias="0.072"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.707" />
+        app:layout_constraintVertical_bias="0.705" />
 </android.support.constraint.ConstraintLayout>
