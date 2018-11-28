@@ -15,12 +15,15 @@
 
 #define MARGEN_ERROR_NIVEL_EJES_CON_HISTERISIS 0.6
 #define MARGEN_ERROR_NIVEL_EJES_SIN_HISTERISIS 0.3
+#define FRECUENCIA_LECTURA_ALTURA 2000
+#define HISTERISIS_ALTURA 0.01
 
 uint8_t mpuAddress = 0x68;  //Puede ser 0x68 o 0x69
 MPU6050 mpu(mpuAddress);
 ultrasonido_hcsr04 sensorDistancia(triggerDistancia, echoDistancia);
 float distancia = 0; //distancia medida por el ultrasonido
 float distanciaAnt = 0;
+float distanciaInicial = 0;
 int time = 0;
 int timeAnt = 0;
 float distBuscada  = 14; //distancia que se busca ajustar desde la app, por defecto 14.
@@ -30,7 +33,8 @@ int btLed = 1;
 int btProx = 1;
 float lecturaX, lecturaY, lecturaZ;
 int sensity = 1024;
-bool subiendoMotores = false;
+bool subiendoPlataformaAlMaximo = false;
+bool bajandoPlataformaAlMinimo = false;
 bool motor1Max = false;
 bool motor2Max = false;
 bool motor3Max = false;
@@ -39,6 +43,11 @@ bool debeContraerMotores = true;
 bool histerisisY = false;
 bool histerisisX = false;
 bool debugMediciones = false;
+bool guardarTiempoInicioRutina = false;
+bool guardarAlturaInicial = false;
+long tiempoAnterior = 0;
+float alturaAnterior = 0;
+int inclinacionASetear = 0;
 
 char btCad[40];
 char c;
@@ -48,7 +57,7 @@ BTparser btp1;
 
 void setup()
 {
-  Serial.begin(1200);
+  Serial.begin(9600);
   Serial3.begin(9600);
   Wire.begin();
   mpu.initialize();
@@ -99,27 +108,71 @@ void loop()
       debeContraerMotores = true;
     }
   } else {
-    if (subiendoMotores) {
-      if (time == 0)
+    if (subiendoPlataformaAlMaximo) {
+
+      if(currentMillis - tiempoAnterior > FRECUENCIA_LECTURA_ALTURA)
       {
-        time = millis();
-        timeAnt = time;
-        distancia = sensorDistancia.getDistancia();
-        distanciaAnt = distancia;
-      } else {
-        time = millis();
-        if ((time - timeAnt) >= 1500)
+        if(modulo(distancia - alturaAnterior) < HISTERISIS_ALTURA)
         {
-          distancia = sensorDistancia.getDistancia();
-          if (distancia == distanciaAnt)
-          {
-            pararMotores();
-            subiendoMotores = false;
-          } else {
-            distanciaAnt = distancia;
-            timeAnt = time;
-          }
+          subiendoPlataformaAlMaximo = false;
+          pararMotores();
         }
+        else
+        {
+          tiempoAnterior = currentMillis;
+          alturaAnterior = sensorDistancia.getDistancia();
+        }
+      }
+    }
+    else if(bajandoPlataformaAlMinimo)
+    {
+      if(motor1Max == HIGH && motor2Max == HIGH && motor3Max == HIGH)
+        bajandoPlataformaAlMinimo = false;
+    }
+    if(inclinacionASetear == 1)
+    {
+      Serial.println(" ---- Estoy subiendo un cm ----");
+      Serial.println(distancia);
+      moverMotoresHorario();
+      if(modulo(distancia - distanciaInicial) >= 1)
+      {
+        pararMotores();
+        inclinacionASetear = 0;
+      }
+      else
+      {
+        if(currentMillis - tiempoAnterior > FRECUENCIA_LECTURA_ALTURA)
+        {
+  
+            if(modulo(distancia - alturaAnterior) < HISTERISIS_ALTURA)
+            {
+              pararMotores();
+              inclinacionASetear = 0;
+            }
+            else
+            {
+              tiempoAnterior = currentMillis;
+              alturaAnterior = distancia;
+            }
+        }
+      }
+    }
+    if(inclinacionASetear == -1)
+    {
+      Serial.println(" ---- Estoy bajando un cm ----");
+      Serial.println(distancia);
+      moverMotoresAntihorario();
+
+      Serial.println("contactos: ");
+      Serial.println(motor1Max);
+      Serial.println(motor2Max);
+      Serial.println(motor3Max);
+
+      if(modulo(distancia - distanciaInicial) >= 1 || (motor1Max == HIGH && motor2Max == HIGH && motor3Max == HIGH))
+      {
+        Serial.println(" --- dejé de bajar ---");
+        pararMotores();
+        inclinacionASetear = 0;
       }
     }
 
@@ -252,7 +305,10 @@ bool ejeYNivelado()
 
 bool plataformaNivelada()
 {
-  return ejeYNivelado() && ejeXNivelado();
+  bool nivelada = ejeYNivelado() && ejeXNivelado();
+  digitalWrite(pinLedVerde, (nivelada ? HIGH : LOW));
+  digitalWrite(pinLedRojo, (nivelada ? LOW : HIGH));
+  return nivelada;
 }
 
 void realizarMediciones()
@@ -261,6 +317,7 @@ void realizarMediciones()
   distancia = sensorDistancia.getDistancia();
   leerContactos();
   calcularValoresInclinacion();
+  
 
   imprimirMediciones();
 }
@@ -332,36 +389,29 @@ void printRAW()
 void contraerMotores()
 {
   leerContactos();
-  Serial.println("------ BAJANDO MOTORES -----");
-  if (motor1Max == LOW)
-    motor1antihorario();
-  else
-    pararMotor1();
-  if (motor2Max == LOW)
-    motor2antihorario();
-  else
-    pararMotor2();
-  if (motor3Max == LOW)
-    motor3antihorario();
-  else
-    pararMotor3();
+  moverMotoresAntihorario();
   if (motor1Max == HIGH && motor2Max == HIGH && motor3Max == HIGH)
-    debeContraerMotores = false;
-
-}
-
-void bajarMesa()
-{
-  if (motor1Max == LOW && motor2Max == LOW && motor3Max == LOW)
   {
-    moverMotoresAntihorario();
+    pararMotores();
+    debeContraerMotores = false;
   }
+
 }
 
-void subirMotores()
+void bajarPlataforma()
+{
+  bajandoPlataformaAlMinimo = true;
+  moverMotoresAntihorario();
+}
+
+void subirPlataforma()
 {
   moverMotoresHorario();
-  subiendoMotores = true;
+  tiempoAnterior = currentMillis;
+  alturaAnterior = distancia;
+  subiendoPlataformaAlMaximo = true;
+  guardarTiempoInicioRutina = true;
+  guardarAlturaInicial = true;
 }
 
 void subirHasta()
@@ -449,6 +499,7 @@ void leerEntradaBluetooth() {
   if (btflag == true)
   {
     btflag = false;
+    Serial.println(btCad);
     btp1.parseString(btCad);
     procesarCodigoRecibido();
 
@@ -467,18 +518,18 @@ void procesarCodigoRecibido()
   {
     enviarEstado();
   }
-  /*if(strcmp(btp1.getCode(), "SETH")  == 0)
-    {
-    setearAltura();
-    }
-    if(strcmp(btp1.getCode(), "SETL")  == 0)
-    {
-    setearLampara();
-    }
-    if(strcmp(btp1.getCode(), "SETP")  == 0)
-    {
+  if(strcmp(btp1.getCode(), "SETP")  == 0)
+  {
     setearAlturaMinimaOMaxima();
-    }*/
+  }
+  if(strcmp(btp1.getCode(), "SETH")  == 0)
+  {
+    setearAltura();
+  }
+  if(strcmp(btp1.getCode(), "SETL")  == 0)
+  {
+    setearLampara();
+  }
 }
 
 void setearAlturaMinimaOMaxima()
@@ -488,11 +539,10 @@ void setearAlturaMinimaOMaxima()
 
   if (btProx == 1)
   {
-    Serial.println("------ INTENTANDO     BAJANDO MOTORES -----");
-    bajarMesa();
+    bajarPlataforma();
   } else if (btProx == 2)
   {
-    subirMotores();
+    subirPlataforma();
   }
 }
 
@@ -501,29 +551,32 @@ void setearLampara()
   btLed = btp1.getVal1();
   if (btLed == 1)
   {
-    prenderLedLampara();
+    digitalWrite(pinLedBlanco, HIGH);
   }
   else if (btLed == 0)
   {
-    apagarLedLampara();
+    digitalWrite(pinLedBlanco, LOW);
   }
 }
 
 void setearAltura()
 {
   pararMotores();
-  subiendoMotores = false;
-  distBuscada = btp1.getVal1();
-  moverHasta();
+  distanciaInicial = distancia;
+  inclinacionASetear = btp1.getVal1();
+  Serial.print(" ------ SETIÉ UNA INCLINACIÓN ------   ");
+  Serial.println(distanciaInicial);
 }
 
 void cambiarModo()
 {
-  Serial.print("-----cambio a modo ");
-  Serial.print(modo);
-  Serial.print("------");
   btModo = btp1.getVal1();
   modo = btModo;
+  Serial.print("-----cambio a modo ");
+  Serial.print(btModo);
+  Serial.print(" ");
+  Serial.print(modo);
+  Serial.print("------");
   Serial3.print("-RMOD OK;");
 }
 
@@ -544,17 +597,6 @@ void enviarEstado()
   Serial3.print(" ");
   Serial3.print(lecturaZ);
   Serial3.print(";");
-}
-
-void prenderLedLampara()
-{
-  //TODO
-}
-
-
-void apagarLedLampara()
-{
-  //TODO
 }
 
 float modulo(float numero)

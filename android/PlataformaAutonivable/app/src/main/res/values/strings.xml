@@ -8,4 +8,5 @@
     <string name="textView6">Estado proximidad :</string>
     <string name="buttonDesconectar">Desconectar </string>
     <string name="buttonCambiarModo">Cambiar Modo</string>
+    <string name="buttonSetInclinacion">Set inclinación</string>
 </resources>

@@ -26,6 +26,8 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.UUID;
 
+import static java.lang.Math.abs;
+
 
 /*
 *
@@ -50,6 +52,9 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
     private TextView textEstadoAltura;
     private Button  buttonDesconectar;
     private Button  buttonCambiarModo;
+    private Button buttonSetInclinacion;
+
+    boolean enviarInclinacion = false;
 
     //Banderas usadas para evitar que cambios en los sensores de luz/proximidad por debajo de la cota vuelvan a
     // comunicarse con el embebido
@@ -115,6 +120,7 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
         textModo = (TextView) findViewById(R.id.textViewModo);
         buttonDesconectar = (Button) findViewById(R.id.buttonDesconectar);
         buttonCambiarModo = (Button) findViewById(R.id.buttonCambiarModo);
+        buttonSetInclinacion = (Button) findViewById(R.id.buttonSetInclinacion);
         bluetoothIn = Handler_Msg_Hilo_Principal();
         cola = new LinkedList<String>();
         buttonDesconectar.setOnClickListener(new View.OnClickListener()
@@ -148,6 +154,14 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
                         modoActual = 1;
                     }
                     mConnectedThread.write("MODE " + modoActual + ";");
+                    System.out.println("----- ENVIE MODO " + modoActual + " -----");
+            }
+        });
+
+        buttonSetInclinacion.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                enviarInclinacion = true;
             }
         });
     }
@@ -323,12 +337,19 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
                 switch (event.sensor.getType()) {
 
                     case Sensor.TYPE_ACCELEROMETER:
-                        if (esInclinacionValida((double) event.values[0], (double) event.values[1], (double) event.values[2])) {
+                        /*if (esInclinacionValida((double) event.values[0], (double) event.values[1], (double) event.values[2])) {
                             altura = obtenerAlturaMesa(event.values[1]);
                             textEstadoAltura.setText("Seteando altura a " + altura);
                             mConnectedThread.write("SETH " + altura + ";");
-                            //cola.add("#" + altura + "#");
+                        }*/
+
+                        double inclinacionEjeY = (double) event.values[1];
+                        System.out.println("inclinacion = " + inclinacionEjeY);
+                        if(enviarInclinacion && abs(inclinacionEjeY) > 9.8/2) {
+                            altura = inclinacionEjeY > 0 ? 1 : -1;
+                            mConnectedThread.write("SETH " + altura + ";");
                         }
+                        enviarInclinacion = false;
 
                         break;
 
@@ -342,12 +363,14 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
                                 textEstadoProximidad.setText("Proximidad detectada : Bajando plataforma");
                                 subirmesa = false;
                                 mConnectedThread.write("SETP " + 1 + ";");
+                                System.out.println(" ------- ENVIE ALTURA MINIMA ------- ");
                                 //cola.add("&1&");
                             } else {
 
                                 textEstadoProximidad.setText("Proximidad detectada : Subiendo plataforma");
                                 subirmesa = true;
                                 mConnectedThread.write("SETP " + 2 + ";");
+                                System.out.println(" ------- ENVIE ALTURA MAXIMA ------- ");
                                 //cola.add("&2s&");
                             }
                         } else if (event.values[0] >= cota_proximidad) {
