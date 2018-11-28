@@ -60,8 +60,6 @@ void BTparser::parseString(char * in)
 
 		i++;
 
-    //Serial.print("|");
-
 	}
 }
 		

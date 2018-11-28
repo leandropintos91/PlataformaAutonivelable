@@ -11,7 +11,6 @@
 #include "botonControl.h"
 #include "ultrasonido_hcsr04.h"
 #include "BTparser.h"
-#include <String.h>
 
 #define MARGEN_ERROR_NIVEL_EJES_CON_HISTERISIS 0.6
 #define MARGEN_ERROR_NIVEL_EJES_SIN_HISTERISIS 0.3
@@ -22,17 +21,10 @@ uint8_t mpuAddress = 0x68;  //Puede ser 0x68 o 0x69
 MPU6050 mpu(mpuAddress);
 ultrasonido_hcsr04 sensorDistancia(triggerDistancia, echoDistancia);
 float distancia = 0; //distancia medida por el ultrasonido
-float distanciaAnt = 0;
 float distanciaInicial = 0;
-int time = 0;
-int timeAnt = 0;
-float distBuscada  = 14; //distancia que se busca ajustar desde la app, por defecto 14.
 int modo = 1;
 int btModo = 0;
-int btLed = 1;
-int btProx = 1;
 float lecturaX, lecturaY, lecturaZ;
-int sensity = 1024;
 bool subiendoPlataformaAlMaximo = false;
 bool bajandoPlataformaAlMinimo = false;
 bool motor1Max = false;
@@ -43,11 +35,9 @@ bool debeContraerMotores = true;
 bool histerisisY = false;
 bool histerisisX = false;
 bool debugMediciones = false;
-bool guardarTiempoInicioRutina = false;
-bool guardarAlturaInicial = false;
-long tiempoAnterior = 0;
+unsigned long tiempoAnterior = 0;
 float alturaAnterior = 0;
-int inclinacionASetear = 0;
+int alturaASetear = 0;
 
 char btCad[40];
 char c;
@@ -82,8 +72,8 @@ void setup()
 
 void loop()
 {
-  leerEntradaBluetooth();
   realizarMediciones();
+  leerEntradaBluetooth();
 
   if (modo == 1)
   {
@@ -129,15 +119,13 @@ void loop()
       if(motor1Max == HIGH && motor2Max == HIGH && motor3Max == HIGH)
         bajandoPlataformaAlMinimo = false;
     }
-    if(inclinacionASetear == 1)
+    if(alturaASetear == 1)
     {
-      Serial.println(" ---- Estoy subiendo un cm ----");
-      Serial.println(distancia);
       moverMotoresHorario();
       if(modulo(distancia - distanciaInicial) >= 1)
       {
         pararMotores();
-        inclinacionASetear = 0;
+        alturaASetear = 0;
       }
       else
       {
@@ -147,7 +135,7 @@ void loop()
             if(modulo(distancia - alturaAnterior) < HISTERISIS_ALTURA)
             {
               pararMotores();
-              inclinacionASetear = 0;
+              alturaASetear = 0;
             }
             else
             {
@@ -157,22 +145,13 @@ void loop()
         }
       }
     }
-    if(inclinacionASetear == -1)
+    if(alturaASetear == -1)
     {
-      Serial.println(" ---- Estoy bajando un cm ----");
-      Serial.println(distancia);
       moverMotoresAntihorario();
-
-      Serial.println("contactos: ");
-      Serial.println(motor1Max);
-      Serial.println(motor2Max);
-      Serial.println(motor3Max);
-
       if(modulo(distancia - distanciaInicial) >= 1 || (motor1Max == HIGH && motor2Max == HIGH && motor3Max == HIGH))
       {
-        Serial.println(" --- dejé de bajar ---");
         pararMotores();
-        inclinacionASetear = 0;
+        alturaASetear = 0;
       }
     }
 
@@ -318,7 +297,6 @@ void realizarMediciones()
   leerContactos();
   calcularValoresInclinacion();
   
-
   imprimirMediciones();
 }
 
@@ -353,9 +331,9 @@ void calcularValoresInclinacion()
 {
   int ax, ay, az;
   mpu.getAcceleration(&ax, &ay, &az);
-  lecturaX = ((float)ax) / sensity;
-  lecturaY = ((float)ay) / sensity;
-  lecturaZ = ((float)az) / sensity;
+  lecturaX = ((float)ax) / SENSIBILIDAD_ACELEROMETRO;
+  lecturaY = ((float)ay) / SENSIBILIDAD_ACELEROMETRO;
+  lecturaZ = ((float)az) / SENSIBILIDAD_ACELEROMETRO;
 }
 
 void leerContactos()
@@ -365,25 +343,9 @@ void leerContactos()
   motor3Max = digitalRead(finMotor3);
 }
 
-void imprimirContactos()
-{
-  Serial.print(motor1Max);
-  Serial.print(motor2Max);
-  Serial.println(motor3Max);
-}
-
 void printTab()
 {
   Serial.print(F("\t"));
-}
-
-void printRAW()
-{
-  Serial.print(F("a[x y z]:t \t"));
-
-  Serial.print(lecturaX); printTab();
-  Serial.print(lecturaY); printTab();
-  Serial.print(lecturaZ); printTab();
 }
 
 void contraerMotores()
@@ -410,74 +372,6 @@ void subirPlataforma()
   tiempoAnterior = currentMillis;
   alturaAnterior = distancia;
   subiendoPlataformaAlMaximo = true;
-  guardarTiempoInicioRutina = true;
-  guardarAlturaInicial = true;
-}
-
-void subirHasta()
-{
-  moverMotoresHorario();
-  time = 0;
-  distanciaAnt = 0;
-  while (distancia < distBuscada && (distancia != distanciaAnt))
-  {
-    if (time == 0)
-    {
-      time = millis();
-      timeAnt = time;
-      distancia = sensorDistancia.getDistancia();
-      distanciaAnt = distancia;
-    } else {
-      time = millis();
-      if ((time - timeAnt) >= 1500)
-      {
-        distancia = sensorDistancia.getDistancia();
-        if (distancia == distanciaAnt)
-        {
-          pararMotores();
-        } else {
-          distanciaAnt = distancia;
-          timeAnt = time;
-        }
-      }
-    }
-    distancia = sensorDistancia.getDistancia();
-  }
-  pararMotores();
-}
-
-void bajarHasta()
-{
-  while (distancia > distBuscada)
-  {
-    leerContactos();
-    if (motor1Max == LOW)
-      motor1antihorario();
-    else
-      pararMotor1();
-    if (motor2Max == LOW)
-      motor2antihorario();
-    else
-      pararMotor2();
-    if (motor3Max == LOW)
-      motor3antihorario();
-    else
-      pararMotor3();
-    distancia = sensorDistancia.getDistancia();
-
-  }
-  pararMotores();
-}
-void moverHasta()
-{
-  distancia = sensorDistancia.getDistancia();
-  if (distBuscada < distancia)
-  {
-    bajarHasta();
-  } else if (distancia > distBuscada)
-  {
-    subirHasta();
-  }
 }
 
 void leerEntradaBluetooth() {
@@ -535,7 +429,7 @@ void procesarCodigoRecibido()
 void setearAlturaMinimaOMaxima()
 {
   pararMotores();
-  btProx = btp1.getVal1();
+  int btProx = btp1.getVal1();
 
   if (btProx == 1)
   {
@@ -548,7 +442,7 @@ void setearAlturaMinimaOMaxima()
 
 void setearLampara()
 {
-  btLed = btp1.getVal1();
+  int btLed = btp1.getVal1();
   if (btLed == 1)
   {
     digitalWrite(pinLedBlanco, HIGH);
@@ -563,9 +457,7 @@ void setearAltura()
 {
   pararMotores();
   distanciaInicial = distancia;
-  inclinacionASetear = btp1.getVal1();
-  Serial.print(" ------ SETIÉ UNA INCLINACIÓN ------   ");
-  Serial.println(distanciaInicial);
+  alturaASetear = btp1.getVal1();
 }
 
 void cambiarModo()
@@ -583,11 +475,10 @@ void cambiarModo()
 void enviarEstado()
 {
   Serial.println(" ---- LLEGO STAT -----");
-  realizarMediciones();
   Serial3.print("RSTA ");
   Serial3.print(modo);
   Serial3.print(" ");
-  Serial3.print("1");//aqui va el estado del led ---- TODO cambiar esto
+  Serial3.print(pinLedBlanco);
   Serial3.print(" ");
   Serial3.print(distancia);
   Serial3.print(" ");

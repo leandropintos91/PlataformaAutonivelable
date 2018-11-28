@@ -1,5 +1,7 @@
 #include "Arduino.h"
 
+#define SENSIBILIDAD_ACELEROMETRO 1024
+
 //bluetooth
 #define pinRx 3
 #define pinTx 2
@@ -30,15 +32,4 @@
 #define pinLedRojo 35
 #define pinLedBlanco 36
 
-
-
-
-
-
-
-
-
-
-//acelerometro
-#define ACCSENSITY 16384
 //uint8_t mpuAddress = 0x68; //Puede ser 0x68 o 0x69
