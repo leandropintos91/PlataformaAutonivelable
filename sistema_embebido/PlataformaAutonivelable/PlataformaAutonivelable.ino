@@ -442,12 +442,15 @@ void setearAlturaMinimaOMaxima()
 void setearLampara()
 {
   int btLed = btp1.getVal1();
+  Serial.println(btLed);
   if (btLed == 1)
   {
+    Serial.println(" --- prendiendo led -----");
     digitalWrite(pinLedBlanco, HIGH);
   }
   else if (btLed == 0)
   {
+    Serial.println(" --- apagando led -----");
     digitalWrite(pinLedBlanco, LOW);
   }
 }

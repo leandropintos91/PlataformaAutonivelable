@@ -79,7 +79,7 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
     //Limite al cual se detecta cambio en el sensor de luz
     // Si es menor: No hay luz
     // Si es mayor: Hay luz
-    private static  final int cota_LED = 5;
+    private static  final int cota_LED = 50;
 
     //Limite al cual se detecta cambio en el sensor de proximidad
     // Si es menor: Detecta proximidad
@@ -130,6 +130,7 @@ public class activity_comunicacion extends AppCompatActivity implements SensorEv
             {
                 try
                 {
+                    mConnectedThread.write("MODE 1;");
                     btSocket.close();
                     btAdapter.disable();
                     Intent i = new Intent(getApplicationContext(),MainActivity.class);
