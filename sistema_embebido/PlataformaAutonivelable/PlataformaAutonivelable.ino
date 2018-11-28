@@ -1,9 +1,3 @@
-//Acelerometro pins
-//GND - GND
-//VCC - VCC
-//SDA - Pin A4
-//SCL - Pin A5
-
 #include "I2Cdev.h"
 #include "MPU6050.h"
 #include "Wire.h"
